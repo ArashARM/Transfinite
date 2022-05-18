@@ -3,6 +3,7 @@ using Rhino.Geometry;
 using System;
 using System.Collections.Generic;
 using Rhino.Geometry.Intersect;
+using System.Linq;
 
 namespace Grasshopper2
 {
@@ -110,7 +111,10 @@ namespace Grasshopper2
             ComputeDomainPolygon();
 
             m_SrfPt = Kato_Suv(u, v);
-            ComputeSrfPts(u_scl,v_scl);            
+            ComputeSrfPts(u_scl, v_scl);
+            var num_u = 20;
+            var num_v = 20;
+            ComputeSurfacePoints(num_u, num_v);
 
             DA.SetDataList(0, m_Curves);
             DA.SetDataList(1, m_DPolygonLines);
@@ -119,9 +123,81 @@ namespace Grasshopper2
             DA.SetData(4, Nu);
             DA.SetData(5, m_SrfPt);
             DA.SetDataList(6, m_SrfPts);
+
         }
 
-        private void ComputeSrfPts(double u_scl,double v_scl)
+
+        private void ComputeSurfacePoints(double u_div, double v_div)
+        {
+            ComputeMinMaxUVs();
+            var polygon = new List<Point3d>(m_DomainPolygon);
+            Point3d first = new Point3d(polygon[0]);
+            polygon.Add(first);
+            var poly = Curve.CreateInterpolatedCurve(polygon, 1);
+
+            var inc_U = (double)(m_maxU - m_minU) / u_div;
+            var inc_V = (double)(m_maxV - m_minV) / v_div;
+            var intlist = new List<int>();
+            m_SrfPts = new List<Point3d>();
+            for (double i = m_minU; i <= m_maxU; i += inc_U)
+            {
+                var counterx = 0;
+                var Ln = new Line(new Point3d(i, m_minV, 0), new Point3d(i, m_maxV, 0));
+                var sr = Intersection.CurveLine(poly, Ln, 0.0001, 0.001);
+                for (double j = m_minV; j <= m_maxV; j += inc_V)
+                {
+                    var state = poly.Contains(new Point3d(i, j, 0), Plane.WorldXY, 0.0000000001);
+                    counterx++;
+                    if (state != PointContainment.Outside)
+                    {
+                        //if (m_DomainPolygon.Contains(new Point3d(i, j, 0)))
+                        //    //m_SrfPts.Add(m_Curves[m_DomainPolygon.IndexOf(new Point3d(i, j, 0))].PointAtStart);
+                        //else
+                        m_SrfPts.Add(Kato_Suv(i, j));
+                    }
+                    else
+                    {
+                        var new_pt = new Point3d(i, j, 0);
+                        var dist_list = new List<double>();
+                        var edge_point = new List<Point3d>();
+
+                        List<Point3d> pts = new List<Point3d>();
+
+                        for (int k = 0; k < sr.Count; k++)
+                        {
+                            edge_point.Add(sr[k].PointA);
+                            dist_list.Add(new_pt.DistanceTo(sr[k].PointA));
+                        }
+
+                        var min_val = dist_list.Min();
+                        var idx = dist_list.IndexOf(min_val);
+
+
+                        //if (m_DomainPolygon.Contains(edge_point[idx]))
+                        //{
+                        //    var value = m_Curves[m_DomainPolygon.IndexOf(edge_point[idx])].PointAtStart;
+                        //    //var value =  Kato_Suv(edge_point[idx].X, edge_point[idx].Y);
+                        //    m_SrfPts.Add(Kato_Suv(edge_point[idx].X, edge_point[idx].Y));
+
+                        //    var sd = 1;
+                        //}
+                        ////else
+                        m_SrfPts.Add(Kato_Suv(edge_point[idx].X, edge_point[idx].Y));
+                    }
+
+                }
+                intlist.Add(counterx);
+            }
+        }
+
+
+
+
+
+
+
+
+        private void ComputeSrfPts(double u_scl, double v_scl)
         {
             int s;
             double N;
@@ -137,7 +213,8 @@ namespace Grasshopper2
                     if (!IsInDomainPolygon(i, j))
                         continue;
 
-                    m_SrfPts.Add(Kato_Suv(i, j));
+                    if (Kato_Suv(i, j) != null)
+                        m_SrfPts.Add(Kato_Suv(i, j));
                     //j += 0.05;
                 }
             }
@@ -150,7 +227,10 @@ namespace Grasshopper2
                 for (double k = 0; k < N; k = k + 1.0)
                 {
                     Pt = m_DomainPolygon[i] * (N - k) / N + m_DomainPolygon[s] * k / N;
-                    m_SrfPts.Add(Kato_Suv(Pt.X, Pt.Y));
+                    var val = Kato_Suv(Pt.X, Pt.Y);
+
+                    if (val.IsValid)
+                        m_SrfPts.Add(Kato_Suv(Pt.X, Pt.Y));
                 }
             }
         }
@@ -176,12 +256,17 @@ namespace Grasshopper2
             }
         }
 
+
+
         private bool IsInDomainPolygon(double u, double v)
         {
             List<Vector3d> Vecs = new List<Vector3d>();
             Vector3d Vec;
             int j;
             double TotAng;
+
+
+
 
             for (int i = 0; i < m_DomainPolygon.Count; i++)
             {
@@ -213,6 +298,7 @@ namespace Grasshopper2
             }
 
             Point3d r_sum = new Point3d();
+            List<double> Value = ComputeSPsideBLFunction1(d_i);
             for (int i = 0; i < m_Curves.Count; i++)
             {
                 double domainlengt = (m_DomainPolygon[IndexWrapper(i, m_Curves.Count)] - m_DomainPolygon[IndexWrapper(i + 1, m_Curves.Count)]).Length;
@@ -222,7 +308,8 @@ namespace Grasshopper2
                 //Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * crossproduct);
 
                 Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * m_Curves[i].TangentAt(curveparameter));
-                r_sum += r * ComputeSPsideBLFunction(d_i, i);
+                //double blendingfunctionvalue = ComputeSPsideBLFunction(d_i, i);
+                r_sum += r * Value[i];
             }
             return r_sum;
         }
@@ -411,6 +498,59 @@ namespace Grasshopper2
             return Nu;
         }
 
+        private static List<double> ComputeSPsideBLFunction1(List<double> d) //Insert Side in order from 0 to n
+        {
+            List<double> Mus = new List<double>();
+            for (int i = 0; i < d.Count; i++)
+            {
+                double Nu = 0;
+
+                double Numerator = 0;
+                double denominator = 0;
+                List<int> Numerator1 = new List<int>();
+
+                Numerator1.Add(i);
+
+                Numerator = ProductFunction(d, Numerator1);
+
+                for (int j = 0; j < d.Count; j++)
+                {
+                    List<int> Denominator1 = new List<int>();
+                    Denominator1.Add(j);
+
+                    double ProVal = ProductFunction(d, Denominator1);
+                    denominator += ProVal;
+
+                }
+
+                Nu = Numerator / denominator;
+
+                if (double.IsNaN(Nu))
+                    Nu = 0;
+                Mus.Add(Nu);
+
+            }
+
+            for (int i = 0; i < Mus.Count; i++)
+            {
+                var side = i;
+                var Preside = i - 1;
+
+                if (i == 0)
+                    Preside = d.Count - 1;
+
+                if (d[side] < 0.0001 && d[Preside] < 0.0001)
+                {
+                    Mus[side] = 1;
+                    Mus[Preside] = 0;
+
+                }
+
+            }
+
+
+            return Mus;
+        }
         private static double ProductFunction(List<double> d, List<int> n)
         {
             double Result = 0;
