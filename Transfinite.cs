@@ -32,6 +32,7 @@ namespace Grasshopper2
         private static List<Brep> m_Patches;
         private static List<double> m_PlanarityErrors;
         private static double m_PlnAverageError;
+        public static List<Point3d> m_uv;
 
         /// <summary>
         /// Registers all the input parameters for this component.
@@ -42,12 +43,14 @@ namespace Grasshopper2
             //pManager.AddNumberParameter("side", "side", "side", GH_ParamAccess.item);
             pManager.AddNumberParameter("u", "u", "u", GH_ParamAccess.item, 0);
             pManager.AddNumberParameter("v", "v", "v", GH_ParamAccess.item, 0);
-            pManager.AddNumberParameter("u_scale", "u_scale", "u_scale", GH_ParamAccess.item, 0.5);
-            pManager.AddNumberParameter("v_scale", "v_scale", "v_scale", GH_ParamAccess.item, 0.5);
-            pManager.AddIntegerParameter("N", "N", "N", GH_ParamAccess.item,3);
+            pManager.AddIntegerParameter("u_scale", "u_scale", "u_scale", GH_ParamAccess.item, 40);
+            pManager.AddIntegerParameter("v_scale", "v_scale", "v_scale", GH_ParamAccess.item, 40);
+            pManager.AddIntegerParameter("N", "N", "N", GH_ParamAccess.item, 3);
+            pManager.AddCurveParameter("C", "C", "C", GH_ParamAccess.list);
 
             pManager[2].Optional = true;
             pManager[3].Optional = true;
+            pManager[5].Optional = true;
         }
 
         /// <summary>
@@ -64,7 +67,7 @@ namespace Grasshopper2
             pManager.AddGenericParameter("kato_pointlist", "kato_pointlist", "kato_pointlist", GH_ParamAccess.list);
             pManager.AddBrepParameter("Patches", "Patches", "Patches", GH_ParamAccess.list);
             pManager.AddNumberParameter("PlnError", "PlnError", "PlnError", GH_ParamAccess.item);
-            
+
         }
 
         /// <summary>
@@ -74,23 +77,32 @@ namespace Grasshopper2
         protected override void SolveInstance(IGH_DataAccess DA)
         {
             int N = 0;
-            List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, -1, 0) };
-            List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, -1, 0), new Point3d(12, 3, -1), new Point3d(14, 7, 1), new Point3d(15, 10, 0) };
-            List<Point3d> Pts3 = new List<Point3d>() { new Point3d(15, 10, 0), new Point3d(13, 13, -1), new Point3d(12, 16, -1), new Point3d(10, 20, 0) };
-            List<Point3d> Pts4 = new List<Point3d>() { new Point3d(10, 20, 0), new Point3d(7, 17, 1), new Point3d(3, 14, -1), new Point3d(0.5, 11, 0) };
-            List<Point3d> Pts5 = new List<Point3d>() { new Point3d(0.5, 11, 0), new Point3d(0, 8, 1), new Point3d(0, 4, -1), new Point3d(0, 0, 0) };
-
-            Curve Crv1 = Curve.CreateInterpolatedCurve(Pts1, 3);
-            Curve Crv2 = Curve.CreateInterpolatedCurve(Pts2, 3);
-            Curve Crv3 = Curve.CreateInterpolatedCurve(Pts3, 3);
-            Curve Crv4 = Curve.CreateInterpolatedCurve(Pts4, 3);
-            Curve Crv5 = Curve.CreateInterpolatedCurve(Pts5, 3);
             m_Curves = new List<Curve>();
-            m_Curves.Add(Crv1);
-            m_Curves.Add(Crv2);
-            m_Curves.Add(Crv3);
-            m_Curves.Add(Crv4);
-            m_Curves.Add(Crv5);
+            var ExtCurve = false;
+
+            if (DA.GetDataList(5, m_Curves))
+                ExtCurve = true;
+            else
+            {
+                m_Curves = new List<Curve>();
+                List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, -1, 0) };
+                List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, -1, 0), new Point3d(12, 3, -1), new Point3d(14, 7, 1), new Point3d(15, 10, 0) };
+                List<Point3d> Pts3 = new List<Point3d>() { new Point3d(15, 10, 0), new Point3d(13, 13, -1), new Point3d(12, 16, -1), new Point3d(10, 20, 0) };
+                List<Point3d> Pts4 = new List<Point3d>() { new Point3d(10, 20, 0), new Point3d(7, 17, 1), new Point3d(3, 14, -1), new Point3d(0.5, 11, 0) };
+                List<Point3d> Pts5 = new List<Point3d>() { new Point3d(0.5, 11, 0), new Point3d(0, 8, 1), new Point3d(0, 4, -1), new Point3d(0, 0, 0) };
+
+                Curve Crv1 = Curve.CreateInterpolatedCurve(Pts1, 3);
+                Curve Crv2 = Curve.CreateInterpolatedCurve(Pts2, 3);
+                Curve Crv3 = Curve.CreateInterpolatedCurve(Pts3, 3);
+                Curve Crv4 = Curve.CreateInterpolatedCurve(Pts4, 3);
+                Curve Crv5 = Curve.CreateInterpolatedCurve(Pts5, 3);
+                m_Curves.Add(Crv1);
+                m_Curves.Add(Crv2);
+                m_Curves.Add(Crv3);
+                m_Curves.Add(Crv4);
+                m_Curves.Add(Crv5);
+            }
+
 
             List<double> Dvalues = new List<double>();
             int Side = 0;
@@ -98,7 +110,8 @@ namespace Grasshopper2
             //DA.GetDataList(0, Dvalues);
             //DA.GetData(1,ref Side);
 
-            double u = 0, v = 0, u_scl = 0.1, v_scl = 0.1;
+            double u = 0, v = 0;
+            int u_scl=0,  v_scl=0 ;
             DA.GetData(0, ref u);
             DA.GetData(1, ref v);
             DA.GetData(2, ref u_scl);
@@ -119,11 +132,11 @@ namespace Grasshopper2
             ComputeDomainPolygon();
             ComputePatches(N);
 
-            m_SrfPt = Kato_Suv(u, v);
-            ComputeSrfPts(u_scl, v_scl);
-            var num_u = 20;
-            var num_v = 20;
-            ComputeSurfacePoints(num_u, num_v);
+            //m_SrfPt = Kato_Suv(u, v);
+            //ComputeSrfPts(u_scl, v_scl);
+            var num_u = u_scl;
+            var num_v = v_scl;
+            ComputeSurfacePoints2(num_u, num_v);
 
             DA.SetDataList(0, m_Curves);
             DA.SetDataList(1, m_DPolygonLines);
@@ -132,8 +145,8 @@ namespace Grasshopper2
             DA.SetData(4, Nu);
             DA.SetData(5, m_SrfPt);
             DA.SetDataList(6, m_SrfPts);
-            DA.SetDataList(7, m_Patches);
-            DA.SetData(8, m_PlnAverageError);            
+            //DA.SetDataList(7, m_Patches);
+            DA.SetData(8, m_PlnAverageError);
         }
 
         private void ComputePatches(int N)
@@ -165,7 +178,7 @@ namespace Grasshopper2
                 SubPolygons.Add(SubPolygon);
             }
 
-            List <List<List<Point3d>>> UVsss = new List<List<List<Point3d>>>();
+            List<List<List<Point3d>>> UVsss = new List<List<List<Point3d>>>();
             List<List<Point3d>> UVss;
             for (int i = 0; i < SubPolygons.Count; i++)
             {
@@ -177,15 +190,15 @@ namespace Grasshopper2
             List<Point3d> PatchUV;
             for (int i = 0; i < UVsss.Count; i++)
             {
-                for (j = 0; j < UVsss[i].Count-1; j++)
+                for (j = 0; j < UVsss[i].Count - 1; j++)
                 {
                     for (k = 0; k < UVsss[i][j].Count - 1; k++)
                     {
                         PatchUV = new List<Point3d>();
                         PatchUV.Add(new Point3d(UVsss[i][j][k]));
-                        PatchUV.Add(new Point3d(UVsss[i][j][k+1]));
-                        PatchUV.Add(new Point3d(UVsss[i][j+1][k+1]));
-                        PatchUV.Add(new Point3d(UVsss[i][j+1][k]));
+                        PatchUV.Add(new Point3d(UVsss[i][j][k + 1]));
+                        PatchUV.Add(new Point3d(UVsss[i][j + 1][k + 1]));
+                        PatchUV.Add(new Point3d(UVsss[i][j + 1][k]));
                         PatchUVs.Add(PatchUV);
                     }
                 }
@@ -203,7 +216,7 @@ namespace Grasshopper2
             Point3d Pt1, Pt2, Pt3, Pt4;
             m_PlanarityErrors = new List<double>();
             double error;
-            
+
             for (int j = 0; j < PatchUVs.Count; j++)
             {
                 Pt1 = Kato_Suv(PatchUVs[j][0].X, PatchUVs[j][0].Y);
@@ -230,11 +243,11 @@ namespace Grasshopper2
             }
 
             m_PlnAverageError = 0;
-            System.IO.File.Delete("D://result//Transfinite//Errors.csv");
+            System.IO.File.Delete("C://result//Transfinite//Errors.csv");
             for (int i = 0; i < m_PlanarityErrors.Count; i++)
             {
                 m_PlnAverageError = m_PlnAverageError + m_PlanarityErrors[i];
-                System.IO.File.AppendAllText("D://result//Transfinite//Errors.csv", m_PlanarityErrors[i].ToString() + "\n");
+                System.IO.File.AppendAllText("C://result//Transfinite//Errors.csv", m_PlanarityErrors[i].ToString() + "\n");
             }
             m_PlnAverageError = m_PlnAverageError / (double)m_PlanarityErrors.Count;
         }
@@ -261,9 +274,9 @@ namespace Grasshopper2
         {
             List<List<Point3d>> UVss = new List<List<Point3d>>();
             List<Point3d> UVs;
-            Point3d UV;            
+            Point3d UV;
 
-            for (double v = 0; v < 1.00001; v = v + 1.0/(double)N)
+            for (double v = 0; v < 1.00001; v = v + 1.0 / (double)N)
             {
                 UVs = new List<Point3d>();
                 for (double u = 0; u < 1.00001; u = u + 1.0 / (double)N)
@@ -290,25 +303,56 @@ namespace Grasshopper2
             var inc_V = (double)(m_maxV - m_minV) / v_div;
             var intlist = new List<int>();
             m_SrfPts = new List<Point3d>();
+            m_uv = new List<Point3d>();
+            var PlyPts = poly.ToNurbsCurve().Points;
+
+            var Ulist = new List<double>();
+            var Vlist = new List<double>();
+
+
             for (double i = m_minU; i <= m_maxU; i += inc_U)
+            { Ulist.Add(i); }
+
+            for (double j = m_minV; j <= m_maxV; j += inc_V)
+            { Vlist.Add(j); }
+
+            for (int i = 0; i < PlyPts.Count; i++)
+            {
+
+                if (!Ulist.Contains(PlyPts[i].X))
+                    Ulist.Add(PlyPts[i].X);
+                if (!Vlist.Contains(PlyPts[i].Y))
+                    Vlist.Add(PlyPts[i].Y);
+            }
+
+            Ulist.Sort();
+            Vlist.Sort();
+            Ulist.RemoveAt(0);
+            Ulist.RemoveAt(Ulist.Count - 1);
+            Vlist.RemoveAt(0);
+            Vlist.RemoveAt(Vlist.Count - 1);
+
+
+            foreach (var UPt in Ulist)
             {
                 var counterx = 0;
-                var Ln = new Line(new Point3d(i, m_minV, 0), new Point3d(i, m_maxV, 0));
+                var Ln = new Line(new Point3d(UPt, m_minV, 0), new Point3d(UPt, m_maxV, 0));
                 var sr = Intersection.CurveLine(poly, Ln, 0.0001, 0.001);
-                for (double j = m_minV; j <= m_maxV; j += inc_V)
+                foreach (var VPt in Vlist)
                 {
-                    var state = poly.Contains(new Point3d(i, j, 0), Plane.WorldXY, 0.0000000001);
+                    var state = poly.Contains(new Point3d(UPt, VPt, 0), Plane.WorldXY, 0.00001);
                     counterx++;
                     if (state != PointContainment.Outside)
                     {
                         //if (m_DomainPolygon.Contains(new Point3d(i, j, 0)))
-                        //    //m_SrfPts.Add(m_Curves[m_DomainPolygon.IndexOf(new Point3d(i, j, 0))].PointAtStart);
+                        //   m_SrfPts.Add(m_Curves[m_DomainPolygon.IndexOf(new Point3d(i, j, 0))].PointAtStart);
                         //else
-                        m_SrfPts.Add(Kato_Suv(i, j));
+                        m_SrfPts.Add(Kato_Suv(UPt, VPt));
+                        m_uv.Add(new Point3d(UPt, VPt, 0));
                     }
                     else
                     {
-                        var new_pt = new Point3d(i, j, 0);
+                        var new_pt = new Point3d(UPt, VPt, 0);
                         var dist_list = new List<double>();
                         var edge_point = new List<Point3d>();
 
@@ -334,6 +378,7 @@ namespace Grasshopper2
                         //}
                         ////else
                         m_SrfPts.Add(Kato_Suv(edge_point[idx].X, edge_point[idx].Y));
+                        m_uv.Add(new Point3d(edge_point[idx].X, edge_point[idx].Y, 0));
                     }
 
                 }
@@ -341,11 +386,54 @@ namespace Grasshopper2
             }
         }
 
+        private void ComputeSurfacePoints2(double u_div, double v_div)
+        {
+            m_SrfPts = new List<Point3d>();
+
+            var polygon = new List<Point3d>(m_DomainPolygon);
+            polygon.Add(new Point3d(polygon[0]));
+
+            List<Line> PolyLine = new List<Line>();
+
+            for (int i = 0; i < polygon.Count - 1; i++)
+                PolyLine.Add(new Line(polygon[i], polygon[i + 1]));
+
+            var u_inc = 1 / (u_div);
+            v_div = (v_div / 2);
+
+            var midLine = new Line(PolyLine[0].PointAtLength(PolyLine[0].Length / 2), PolyLine[2].To);
+            m_DPolygonLines.Add(midLine);
 
 
+            var DividingLines = new List<Line>();
+            for (int i = 0; i <= u_div; i++)
+            {
+                DividingLines.Add(new Line(PolyLine[4].PointAtLength(PolyLine[4].Length - (double)i / u_div * PolyLine[4].Length), midLine.PointAtLength((double)i / u_div * midLine.Length)));
+                DividingLines.Add(new Line(midLine.PointAtLength((double)i / u_div * midLine.Length), PolyLine[1].PointAtLength((double)i / u_div * PolyLine[1].Length)));
+            }
+            m_DPolygonLines.AddRange(DividingLines);
 
 
+            for (int i = 0; i < DividingLines.Count / 2; i++)
+            {
+                for (int j = 0; j < v_div; j++)
+                {
+                    var pt = DividingLines[i * 2].PointAtLength((double)j / v_div * DividingLines[i * 2].Length);
+                    m_SrfPts.Add(Kato_Suv(pt.X, pt.Y));
+                    //m_SrfPts.Add(pt);
 
+                }
+                for (int j = 0; j <= v_div; j++)
+                {
+                    var pt = DividingLines[i * 2 + 1].PointAtLength((double)j / v_div * DividingLines[i * 2 + 1].Length);
+                    m_SrfPts.Add(Kato_Suv(pt.X, pt.Y));
+                    //m_SrfPts.Add(pt);
+
+                }
+            }
+
+
+        }
 
 
         private void ComputeSrfPts(double u_scl, double v_scl)
