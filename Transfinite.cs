@@ -4,6 +4,9 @@ using System;
 using System.Collections.Generic;
 using Rhino.Geometry.Intersect;
 using System.Linq;
+using System.Diagnostics;
+//using Accord.Math;
+//using Accord.Math.Geometry;
 
 namespace Grasshopper2
 {
@@ -20,6 +23,9 @@ namespace Grasshopper2
         }
 
         private static List<Curve> m_Curves;
+        private static List<Vector3d> m_Ts;
+        private static List<List<Vector3d>> m_Tss;
+        private static List<Curve> m_IsoCurves;
         private static List<Point3d> m_DomainPolygon;
         private static List<Line> m_DPolygonLines;
         public static List<double> m_DisToEdges;
@@ -33,6 +39,7 @@ namespace Grasshopper2
         private static List<double> m_PlanarityErrors;
         private static double m_PlnAverageError;
         public static List<Point3d> m_uv;
+        private List<List<Curve>> IsolinesList = new List<List<Curve>>();
 
         /// <summary>
         /// Registers all the input parameters for this component.
@@ -85,7 +92,7 @@ namespace Grasshopper2
             else
             {
                 m_Curves = new List<Curve>();
-                List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, -1, 0) };
+                /*List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, -1, 0) };
                 List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, -1, 0), new Point3d(12, 3, -1), new Point3d(14, 7, 1), new Point3d(15, 10, 0) };
                 List<Point3d> Pts3 = new List<Point3d>() { new Point3d(15, 10, 0), new Point3d(13, 13, -1), new Point3d(12, 16, -1), new Point3d(10, 20, 0) };
                 List<Point3d> Pts4 = new List<Point3d>() { new Point3d(10, 20, 0), new Point3d(7, 17, 1), new Point3d(3, 14, -1), new Point3d(0.5, 11, 0) };
@@ -100,18 +107,94 @@ namespace Grasshopper2
                 m_Curves.Add(Crv2);
                 m_Curves.Add(Crv3);
                 m_Curves.Add(Crv4);
+                m_Curves.Add(Crv5);*/
+                /* List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, 0, 0) };
+                 List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, 0, 0), new Point3d(11, 5, -1), new Point3d(10, 8, 1), new Point3d(10, 10, 0) };
+                 List<Point3d> Pts3 = new List<Point3d>() { new Point3d(10, 10, 0), new Point3d(8, 9, 1), new Point3d(6.5, 9, 0), new Point3d(5, 10, 0) };
+                 List<Point3d> Pts4 = new List<Point3d>() { new Point3d(5, 10, 0), new Point3d(5, 14, 0), new Point3d(5, 18, 0), new Point3d(5, 20, 0) };
+                 List<Point3d> Pts5 = new List<Point3d>() { new Point3d(5, 20, 0), new Point3d(4, 20, 1), new Point3d(2, 21, 0), new Point3d(0, 20, 0) };
+                 List<Point3d> Pts6 = new List<Point3d>() { new Point3d(0, 20, 0), new Point3d(0, 14, 1), new Point3d(0, 8, -1), new Point3d(0, 0, 0) };*/
+                /*List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 0), new Point3d(6, 0, 0), new Point3d(10, 0, 0) };
+                List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, 0, 0), new Point3d(11, 5, 0), new Point3d(10, 8, 0), new Point3d(10, 10, 0) };
+                List<Point3d> Pts3 = new List<Point3d>() { new Point3d(10, 10, 0), new Point3d(8, 9, 0), new Point3d(6.5, 9, 0), new Point3d(5, 10, 0) };
+                List<Point3d> Pts4 = new List<Point3d>() { new Point3d(5, 10, 0), new Point3d(5, 14, 0), new Point3d(5, 18, 0), new Point3d(5, 20, 0) };
+                List<Point3d> Pts5 = new List<Point3d>() { new Point3d(5, 20, 0), new Point3d(4, 20, 0), new Point3d(2, 21, 0), new Point3d(0, 20, 0) };
+                List<Point3d> Pts6 = new List<Point3d>() { new Point3d(0, 20, 0), new Point3d(0, 14, 0), new Point3d(0, 8, 0), new Point3d(0, 0, 0) };*/
+                List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 0), new Point3d(6, 0, 0), new Point3d(10, 0, 0) };
+                List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, 0, 0), new Point3d(10, 5, 0), new Point3d(10, 8, 0), new Point3d(10, 10, 0) };
+                List<Point3d> Pts3 = new List<Point3d>() { new Point3d(10, 10, 0), new Point3d(8, 10, 0), new Point3d(6.5, 10, 0), new Point3d(5, 10, 0) };
+                List<Point3d> Pts4 = new List<Point3d>() { new Point3d(5, 10, 0), new Point3d(5, 14, 0), new Point3d(5, 18, 0), new Point3d(5, 20, 0) };
+                List<Point3d> Pts5 = new List<Point3d>() { new Point3d(5, 20, 0), new Point3d(4, 20, 0), new Point3d(2, 20, 0), new Point3d(0, 20, 0) };
+                List<Point3d> Pts6 = new List<Point3d>() { new Point3d(0, 20, 0), new Point3d(0, 14, 0), new Point3d(0, 8, 0), new Point3d(0, 0, 0) };
+
+                /*List<Point3d> Pts1 = new List<Point3d>() { new Point3d(0, 0, 0), new Point3d(3, 0, 1), new Point3d(6, 0, -1), new Point3d(10, 0, 0) };
+                List<Point3d> Pts2 = new List<Point3d>() { new Point3d(10, 0, 0), new Point3d(11, 5, -1), new Point3d(10, 8, 1), new Point3d(10, 10, 0) };
+                List<Point3d> Pts3 = new List<Point3d>() { new Point3d(10, 10, 0), new Point3d(9, 12, 1), new Point3d(8.5, 15, 0), new Point3d(8, 18, 0) };
+                List<Point3d> Pts4 = new List<Point3d>() { new Point3d(8, 18, 0), new Point3d(7, 19, 0), new Point3d(6, 19.5, 0), new Point3d(5, 20, 0) };
+                List<Point3d> Pts5 = new List<Point3d>() { new Point3d(5, 20, 0), new Point3d(4, 20, 1), new Point3d(2, 21, 0), new Point3d(0, 20, 0) };
+                List<Point3d> Pts6 = new List<Point3d>() { new Point3d(0, 20, 0), new Point3d(0, 14, 1), new Point3d(0, 8, -1), new Point3d(0, 0, 0) };*/
+
+                Curve Crv1 = Curve.CreateInterpolatedCurve(Pts1, 3);
+                Curve Crv2 = Curve.CreateInterpolatedCurve(Pts2, 3);
+                Curve Crv3 = Curve.CreateInterpolatedCurve(Pts3, 3);
+                Curve Crv4 = Curve.CreateInterpolatedCurve(Pts4, 3);
+                Curve Crv5 = Curve.CreateInterpolatedCurve(Pts5, 3);
+                Curve Crv6 = Curve.CreateInterpolatedCurve(Pts6, 3);
+                m_Curves.Add(Crv1);
+                m_Curves.Add(Crv2);
+                m_Curves.Add(Crv3);
+                m_Curves.Add(Crv4);
                 m_Curves.Add(Crv5);
+                m_Curves.Add(Crv6);
+
+                m_Ts = new List<Vector3d>();
+                m_Ts.Add(new Vector3d(1, 1, 1));
+                m_Ts.Add(new Vector3d(-1, 1, 1));
+                m_Ts.Add(new Vector3d(-1, -1, 1));
+                m_Ts.Add(new Vector3d(-1, -1, 1));
+                m_Ts.Add(new Vector3d(-1, -1, 1));
+                m_Ts.Add(new Vector3d(1, -1, 1));
+
+                m_Tss = new List<List<Vector3d>>();
+                List<Vector3d> Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(0, 1, 1));
+                Ts.Add(new Vector3d(0, 1, 1));
+                m_Tss.Add(Ts);
+
+                Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(-1, 0, 1));
+                Ts.Add(new Vector3d(-1, 0, 1));
+                m_Tss.Add(Ts);
+
+                Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(0, -1, 1));
+                Ts.Add(new Vector3d(0, -1, 1));
+                m_Tss.Add(Ts);
+
+                Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(-1, 0, 1));
+                Ts.Add(new Vector3d(-1, 0, 1));
+                m_Tss.Add(Ts);
+
+                Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(0, -1, 1));
+                Ts.Add(new Vector3d(0, -1, 1));
+                m_Tss.Add(Ts);
+
+                Ts = new List<Vector3d>();
+                Ts.Add(new Vector3d(1, 0, 1));
+                Ts.Add(new Vector3d(1, 0, 1));
+                m_Tss.Add(Ts);
             }
 
 
             List<double> Dvalues = new List<double>();
             int Side = 0;
-
             //DA.GetDataList(0, Dvalues);
             //DA.GetData(1,ref Side);
 
             double u = 0, v = 0;
-            int u_scl=0,  v_scl=0 ;
+            int u_scl = 0, v_scl = 0;
             DA.GetData(0, ref u);
             DA.GetData(1, ref v);
             DA.GetData(2, ref u_scl);
@@ -130,14 +213,41 @@ namespace Grasshopper2
             double Nu = ComputeSPsideBLFunction(Dvalues, Side);
 
             ComputeDomainPolygon();
-            ComputePatches(N);
+            ComputeIsolines();
+
+            Point3d Pt;
+            Vector3d Vec;
+            int k;
+            double t;
+            for (int i = 0; i < m_Curves.Count; i++)
+            {
+                k = (i + 1) % m_Curves.Count;
+                for (int j = 0; j <= 100; j++)
+                {
+                    t = m_Curves[i].Domain.Min + (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min) * (double)j / 100.0;
+                    Pt = m_Curves[i].PointAt(t);
+                    //Vec = m_Ts[i] + (m_Ts[k] - m_Ts[i]) * (double)j/100.0;
+                    Vec = m_Tss[i][0] + (m_Tss[i][1] - m_Tss[i][0]) * (double)j / 100.0;
+
+
+                    m_DPolygonLines.Add(new Line(Pt, Pt + Vec));
+                }
+            }
+
+            //ComputePatches(N);
 
             //m_SrfPt = Kato_Suv(u, v);
             //ComputeSrfPts(u_scl, v_scl);
             var num_u = u_scl;
             var num_v = v_scl;
-            ComputeSurfacePoints2(num_u, num_v);
-
+            //ComputeSurfacePoints2(num_u, num_v);
+            //ComputeSurfacePoints3(10);
+            ComputeSurfacePoints4(10);
+            //ComputeDistance3(0.2, 0.6);
+            //m_SrfPts = new List<Point3d>();
+            //m_SrfPts.Add(Kato_Suv(0.5, 0.5));
+            //m_SrfPts.Add(Kato_Suv(1, 0.5));
+            //m_Curves = m_IsoCurves;
             DA.SetDataList(0, m_Curves);
             DA.SetDataList(1, m_DPolygonLines);
             DA.SetData(2, landa);
@@ -145,7 +255,7 @@ namespace Grasshopper2
             DA.SetData(4, Nu);
             DA.SetData(5, m_SrfPt);
             DA.SetDataList(6, m_SrfPts);
-            //DA.SetDataList(7, m_Patches);
+            DA.SetDataList(7, m_Patches);
             DA.SetData(8, m_PlnAverageError);
         }
 
@@ -243,13 +353,13 @@ namespace Grasshopper2
             }
 
             m_PlnAverageError = 0;
-            System.IO.File.Delete("C://result//Transfinite//Errors.csv");
-            for (int i = 0; i < m_PlanarityErrors.Count; i++)
-            {
-                m_PlnAverageError = m_PlnAverageError + m_PlanarityErrors[i];
-                System.IO.File.AppendAllText("C://result//Transfinite//Errors.csv", m_PlanarityErrors[i].ToString() + "\n");
-            }
-            m_PlnAverageError = m_PlnAverageError / (double)m_PlanarityErrors.Count;
+            //System.IO.File.Delete("C://result//Transfinite//Errors.csv");
+            //for (int i = 0; i < m_PlanarityErrors.Count; i++)
+            //{
+            //    m_PlnAverageError = m_PlnAverageError + m_PlanarityErrors[i];
+            //    System.IO.File.AppendAllText("C://result//Transfinite//Errors.csv", m_PlanarityErrors[i].ToString() + "\n");
+            //}
+            //m_PlnAverageError = m_PlnAverageError / (double)m_PlanarityErrors.Count;
         }
 
         private double ComputePlanarityError(Point3d Pt1, Point3d Pt2, Point3d Pt3, Point3d Pt4)
@@ -435,6 +545,280 @@ namespace Grasshopper2
 
         }
 
+        private List<(double, double)> MVC(double u, double v)
+        {
+            List<double> w_i = new List<double>();
+            List<double> s_i = new List<double>();
+
+            var pt = new Point3d(u, v, 0);
+            MVCweights(pt, out w_i);
+
+            var d_i = w_i.Select(x => 1 - Math.Abs(x)).ToList();
+            for (int i = 0; i < w_i.Count; i++)
+            {
+                if (w_i[i] == 0 && w_i[(i + 1) % w_i.Count] == 0)
+                    s_i.Add(1);
+                else
+                    s_i.Add((double)d_i[i] / (double)(d_i[i] + d_i[(i + 1) % d_i.Count]));
+            }
+            for (int i = 0; i < d_i.Count; i++)
+            {
+                d_i[i] = 1 -(Math.Abs( w_i[i]) + (w_i[(i + 1) % w_i.Count] - w_i[i]) * s_i[i]);
+            }
+            List<(double, double)> Distance = new List<(double, double)>();
+
+            for (int i = 0; i < d_i.Count; i++)
+                Distance.Add((s_i[i], d_i[i]));
+
+            return Distance;
+        }
+
+        private int MVCweights(Point3d queryCoord, out List<double> baryCoords)
+        {
+            var cageCoords = m_DomainPolygon;
+            int nSize = cageCoords.Count;
+            Debug.Assert(nSize != 0);
+
+            double dx, dy;
+
+            List<Vector3d> s = new List<Vector3d>(nSize);
+            baryCoords = new List<double>(nSize);
+
+            for (int i = 0; i < nSize; i++)
+            {
+                dx = cageCoords[i].X - queryCoord.X;
+                dy = cageCoords[i].Y - queryCoord.Y;
+                s.Add(new Vector3d(dx, dy, 0));
+            }
+
+            for (int i = 0; i < nSize; i++)
+                baryCoords.Add(0.0);
+
+            int ip, im;      // (i+1) and (i-1)
+            double ri, rp, Ai, Di, dl, mu;  // Distance
+            double eps = 10.0 * 2.22507e-308;
+
+            // First check if any coordinates close to the cage point or
+            // lie on the cage boundary. These are special cases.
+            for (int i = 0; i < nSize; i++)
+            {
+                ip = (i + 1) % nSize;
+                ri = Math.Sqrt(s[i].X * s[i].X + s[i].Y * s[i].Y);
+                Ai = 0.5 * (s[i].X * s[ip].Y - s[ip].X * s[i].Y);
+                Di = s[ip].X * s[i].X + s[ip].Y * s[i].Y;
+                if (ri <= eps)
+                {
+                    baryCoords[i] = 1.0;
+                    return 0;
+                }
+                else if (Math.Abs(Ai) <= 0 && Di < 0.0)
+                {
+                    dx = cageCoords[ip].X - cageCoords[i].X;
+                    dy = cageCoords[ip].Y - cageCoords[i].Y;
+                    dl = Math.Sqrt(dx * dx + dy * dy);
+                    Debug.Assert(dl > eps);
+                    dx = queryCoord.X - cageCoords[i].X;
+                    dy = queryCoord.Y - cageCoords[i].Y;
+                    mu = Math.Sqrt(dx * dx + dy * dy) / dl;
+                    Debug.Assert(mu >= 0.0 && mu <= 1.0);
+                    baryCoords[i] = 1.0 - mu;
+                    baryCoords[ip] = mu;
+                    return 0;
+                }
+            }
+
+            // Page #12, from the paper
+            List<double> tanalpha = new List<double>(nSize); // tan(alpha/2)
+            for (int i = 0; i < nSize; i++)
+            {
+                ip = (i + 1) % nSize;
+                im = (nSize - 1 + i) % nSize;
+                ri = Math.Sqrt(s[i].X * s[i].X + s[i].Y * s[i].Y);
+                rp = Math.Sqrt(s[ip].X * s[ip].X + s[ip].Y * s[ip].Y);
+                Ai = 0.5 * (s[i].X * s[ip].Y - s[ip].X * s[i].Y);
+                Di = s[ip].X * s[i].X + s[ip].Y * s[i].Y;
+                tanalpha.Add((ri * rp - Di) / (2.0 * Ai));
+            }
+
+            // Equation #11, from the paper
+            double wi, wsum = 0.0;
+            for (int i = 0; i < nSize; i++)
+            {
+                im = (nSize - 1 + i) % nSize;
+                ri = Math.Sqrt(s[i].X * s[i].X + s[i].Y * s[i].Y);
+                wi = 2.0 * (tanalpha[i] + tanalpha[im]) / ri;
+                wsum += wi;
+                baryCoords[i] = wi;
+            }
+
+            if (Math.Abs(wsum) > 0.0)
+            {
+                for (int i = 0; i < nSize; i++)
+                    baryCoords[i] /= wsum;
+            }
+
+            return 0;
+
+        }
+
+        private void ComputeSurfacePoints4(int N)
+        {
+            m_SrfPts = new List<Point3d>();
+
+            //for (double u = 0; u < 1.00001; u = u + 1.0 / (double)N) //0, 1.00001 
+            //{
+            //    for (double v = 0; v < 2.00001; v = v + 1.0 / (double)N) //0, 2.00001
+            //    {
+            //        if (IsInDomainPolygon(u, v))
+            //            m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+            //    }
+            //}
+
+            //for (double u = -20; u < 20.00001; u = u + 1.0) //0, 1.00001 
+            //{
+            //    for (double v = -20; v < 20.00001; v = v + 1.0) //0, 2.00001
+            //    {
+            //        if (IsInDomainPolygon(u, v))
+            //            m_SrfPts.Add(new Point3d(u, v, 0)); //m_SrfPts.Add(Kato_Suv(u, v)); 
+            //    }
+            //}
+
+            List<List<Point3d>> Ptss = new List<List<Point3d>>();
+            List<Point3d> Pts;
+            double v = -1;
+            for (v = 0; v <= 10.0001; v = v + 1)
+            {
+                Pts = new List<Point3d>();
+                for (double u = 0; u <= 10.0001; u = u + 1)
+                {
+                    m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+                    Pts.Add(Kato_Suv(u, v));
+                }
+                Ptss.Add(Pts);
+            }
+
+            //for (v = 11; v <= 20.0001; v = v + 1)
+            //{
+            //    Pts = new List<Point3d>();
+            //    for (double u = 0; u <= 10.0001; u = u + 1)
+            //    {
+            //        if (u > 5)
+            //        {
+            //            m_SrfPts.Add(new Point3d(u, v, 0));
+            //            Pts.Add(new Point3d(u, v, 0));
+            //        }
+            //        else
+            //        {
+            //            m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+            //            Pts.Add(Kato_Suv(u, v));
+            //        }
+            //    }
+            //    Ptss.Add(Pts);
+            //}
+
+        }
+
+        private void ComputeSurfacePoints3(int N)
+        {
+            m_SrfPts = new List<Point3d>();
+            Line Ln = new Line(m_DomainPolygon[0], m_DomainPolygon[1]);
+            Ln.Extend(100, 100);
+            List<List<Point3d>> Ptss = new List<List<Point3d>>();
+            List<Point3d> Pts = new List<Point3d>();
+            Vector3d OffsetVec, Vec1, Vec2;
+
+            for (int i = 0; i <= N; i++)
+                Pts.Add(m_DomainPolygon[0] + i * (m_DomainPolygon[1] - m_DomainPolygon[0]) / (double)N);
+            Ptss.Add(Pts);
+
+            Vec1 = m_DomainPolygon[2] - m_DomainPolygon[1];
+            Vec2 = m_DomainPolygon[m_DomainPolygon.Count - 1] - m_DomainPolygon[0];
+            OffsetVec = 0.5 * (Vec1 + Vec2);
+            OffsetVec.Unitize();
+            OffsetVec = Vector3d.Multiply(0.1, OffsetVec);
+
+            Ln.From = Ln.From + OffsetVec;
+            Ln.To = Ln.To + OffsetVec;
+
+            List<Line> Lines = new List<Line>();
+            Line Ln2;
+            int j;
+            for (int i = 1; i < m_DomainPolygon.Count; i++)
+            {
+                //if (i == 2 || i == 4)
+                //continue;
+                j = (i + 1) % m_DomainPolygon.Count;
+                Ln2 = new Line(m_DomainPolygon[i], m_DomainPolygon[j]);
+                Lines.Add(Ln2);
+            }
+
+            List<Point3d> Pts2;
+            Pts = GetIntersection(Ln, Lines);
+            while (Pts.Count != 0)
+            {
+                if (Pts.Count <= 2)
+                {
+                    Ln.From = Ln.From + OffsetVec;
+                    Ln.To = Ln.To + OffsetVec;
+                    Pts = GetIntersection(Ln, Lines);
+                    break;
+                }
+                Pts2 = new List<Point3d>();
+                for (int i = 0; i <= N; i++)
+                    Pts2.Add(Pts[0] + i * (Pts[1] - Pts[0]) / (double)N);
+                Ptss.Add(Pts2);
+
+                Ln.From = Ln.From + OffsetVec;
+                Ln.To = Ln.To + OffsetVec;
+                Pts = GetIntersection(Ln, Lines);
+
+
+
+                //break;
+            }
+
+            for (int i = 0; i < Ptss.Count; i++)
+                for (int k = 0; k < Ptss[i].Count; k++)
+                    m_SrfPts.Add(Kato_Suv(Ptss[i][k].X, Ptss[i][k].Y));
+            /*for (int i = 0; i < Ptss.Count; i++)
+                for (int k = 0; k < Ptss[i].Count; k++)
+                    m_SrfPts.Add(Ptss[i][k]);*/
+            /*m_SrfPts.Add(new Point3d(0, 0, 0));
+            m_SrfPts.Add(new Point3d(0.5, 0.5, 0));
+            m_SrfPts.Add(new Point3d(0.75, 0.5, 0));
+            m_SrfPts.Add(new Point3d(1, 0.5, 0));
+            m_SrfPts.Add(new Point3d(0.25, 1.5, 0));*/
+            /*m_SrfPts.Add(Kato_Suv(0, 0));
+            m_SrfPts.Add(Kato_Suv(0.5, 0.5));
+            m_SrfPts.Add(Kato_Suv(0.75, 0.5));
+            m_SrfPts.Add(Kato_Suv(1, 0.5));
+            m_SrfPts.Add(Kato_Suv(0.25, 1.5));*/
+
+            //m_SrfPts.Add(Kato_Suv(0.5, 0.8));
+            //m_SrfPts.Add(Kato_Suv(0.5, 0.5));
+            //m_SrfPts.Add(Kato_Suv(0.5, 0.1));
+            //m_SrfPts.Add(Kato_Suv(0.5, 1.5));
+            //m_SrfPts.Add(Kato_Suv(0.2, 1));
+            //m_SrfPts.Add(Kato_Suv(0.4, 1));
+        }
+
+        List<Point3d> GetIntersection(Line Ln, List<Line> Lines)
+        {
+            List<Point3d> Pts = new List<Point3d>();
+            double a, b;
+
+            for (int i = 0; i < Lines.Count; i++)
+            {
+                Intersection.LineLine(Ln, Lines[i], out a, out b);
+
+                if (a >= 0 && a <= 1 && b >= 0 && b <= 1)
+                {
+                    Pts.Add(Ln.PointAt(a));
+                }
+            }
+
+            return Pts;
+        }
 
         private void ComputeSrfPts(double u_scl, double v_scl)
         {
@@ -495,16 +879,13 @@ namespace Grasshopper2
             }
         }
 
-
-
         private bool IsInDomainPolygon(double u, double v)
         {
             List<Vector3d> Vecs = new List<Vector3d>();
             Vector3d Vec;
             int j;
             double TotAng;
-
-
+            var ptt = new List<Point3d>();
 
 
             for (int i = 0; i < m_DomainPolygon.Count; i++)
@@ -523,21 +904,64 @@ namespace Grasshopper2
             if (Math.Abs(TotAng - 2 * Math.PI) < 9E-9)
                 return true;
 
+            /*Line Ln = new Line(new Point3d(u, v, 0), new Point3d(u, v, 0) + new Vector3d(1000, 0, 0));
+            int j;
+            List<Line> Lines = new List<Line>();
+            Line Ln2;
+            for (int i = 0; i < m_DomainPolygon.Count; i++)
+            {
+                j = (i + 1) % m_DomainPolygon.Count;
+                Ln2 = new Line(m_DomainPolygon[i], m_DomainPolygon[j]);
+                Lines.Add(Ln2);
+            }
+
+            List<Point3d> Pts = GetIntersection(Ln, Lines);
+            if (Pts.Count != 0)
+                return true;  */
+
             return false;
         }
 
         private Point3d Kato_Suv(double u, double v)
         {
-            List<(double, double)> si_di = ComputeRadialDistanceFunctionforKato(u, v, m_Curves.Count);
+            //List<(double, double)> si_di = ComputeRadialDistanceFunctionforKato(u, v, m_Curves.Count);
+            //List<(double, double)> si_di = ComputeDistance2(u, v);
+            //List<(double, double)> si_di = ComputeDistance3(u, v);
+            List<(double, double)> si_di = MVC(u, v);
 
+            //int j;
+            //Line Ln;
+            //Point3d Pt;
+            //double s, d;
+            /* for (int i = 0; i < m_DomainPolygon.Count; i++)
+             {
+                 j = (i+1)% m_DomainPolygon.Count;
+                 Ln = new Line(m_DomainPolygon[i], m_DomainPolygon[j]);
+                 Pt = Ln.ClosestPoint(new Point3d(u, v, 0), true);
+                 s = Pt.DistanceTo(Ln.From) / Ln.Length;
+                 d = Pt.DistanceTo(new Point3d(u, v, 0));
+
+                 si_di.Add((s, d));
+             }*/
+            /*List<(double, double)> si_di = new List<(double, double)>();
+             * si_di.Add((0.5, 0.8));
+            si_di.Add((0.8, 0.5));
+            si_di.Add((1, 0.2));
+            si_di.Add((0.5, 1000.0));
+            si_di.Add((0.5, 1000));
+            si_di.Add((0.6, 1000));*/
+
+            double s;
             List<double> d_i = new List<double>();
             for (int i = 0; i < si_di.Count; i++)
             {
                 d_i.Add(si_di[i].Item2);
             }
 
+            Vector3d T = new Vector3d();
             Point3d r_sum = new Point3d();
             List<double> Value = ComputeSPsideBLFunction1(d_i);
+            int j;
             for (int i = 0; i < m_Curves.Count; i++)
             {
                 double domainlengt = (m_DomainPolygon[IndexWrapper(i, m_Curves.Count)] - m_DomainPolygon[IndexWrapper(i + 1, m_Curves.Count)]).Length;
@@ -545,18 +969,226 @@ namespace Grasshopper2
 
                 //Vector3d crossproduct = Vector3d.CrossProduct(m_Curves[i].TangentAt(curveparameter), m_Curves[i].CurvatureAt(curveparameter));
                 //Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * crossproduct);
+                //s = m_Curves[i].Domain.Min + si_di[i].Item1 * (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min);
+                //Vector3d crossproduct = Vector3d.CrossProduct(m_Curves[i].TangentAt(s), m_Curves[i].CurvatureAt(s));
+                //Vector3d crossproduct = m_Curves[i].CurvatureAt(s);
+                //Point3d r = m_Curves[i].PointAt(s) + (si_di[i].Item2 * crossproduct);
 
-                Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * m_Curves[i].TangentAt(curveparameter));
+                //Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * m_Curves[i].TangentAt(curveparameter));
+                //   s = m_Curves[i].Domain.Min + si_di[i].Item1 * (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min);
+                //   Point3d r = m_Curves[i].PointAt(s) + (si_di[i].Item2 * m_Curves[i].TangentAt(s));
                 //double blendingfunctionvalue = ComputeSPsideBLFunction(d_i, i);
+
+                s = m_Curves[i].Domain.Min + si_di[i].Item1 * (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min);
+                j = (i + 1) % m_Curves.Count;
+                //T = m_Ts[i] + si_di[i].Item1 * (m_Ts[j] - m_Ts[i]);
+                T = m_Tss[i][0] + si_di[i].Item1 * (m_Tss[i][1] - m_Tss[i][0]);
+
+                Point3d r = m_Curves[i].PointAt(s) + (si_di[i].Item2 * T);
+
                 r_sum += r * Value[i];
             }
+
             return r_sum;
+        }
+
+        private void ComputeIsolines()
+        {
+            IsolinesList.Clear();
+            var Pnum = m_DPolygonLines.Count;
+            for (int i = 0; i < Pnum; i++)
+            {
+                var lft = new Line();
+
+                if (i == 0)
+                    lft = m_DPolygonLines[Pnum - 1];
+                else if (i == 2 || i == 5)
+                    lft = m_DPolygonLines[(i + 1) % Pnum];
+                else
+                    lft = m_DPolygonLines[i - 1];
+
+
+                var Left = lft.ToNurbsCurve();
+                var Rght = new List<NurbsCurve>();
+                if (i == 2 || i == 5)
+                {
+                    Rght.Add(m_DPolygonLines[(i - 1) % Pnum].ToNurbsCurve());
+                    Rght.Add(m_DPolygonLines[(i - 2) % Pnum].ToNurbsCurve());
+                    if (i == 2)
+                        Rght.Add(m_DPolygonLines[Pnum - 1].ToNurbsCurve());
+                    else
+                        Rght.Add(m_DPolygonLines[(i - 3) % Pnum].ToNurbsCurve());
+                }
+                else
+                {
+                    Rght.Add(m_DPolygonLines[(i + 1) % Pnum].ToNurbsCurve());
+                    Rght.Add(m_DPolygonLines[(i + 2) % Pnum].ToNurbsCurve());
+                    Rght.Add(m_DPolygonLines[(i + 3) % Pnum].ToNurbsCurve());
+
+                }
+
+
+                var Right = Curve.JoinCurves(Rght);
+                if (i == 0)
+                {
+                    //var rev2 = Left.Reverse();
+                    var rev = Right[0].Reverse();
+                }
+                else if (i == 1)
+                {
+                    var rev2 = Left.Reverse();
+                    //var rev = Right[0].Reverse();
+                }
+                else if (i == 2)
+                {
+                    var rev2 = Left.Reverse();
+                    //var rev = Right[0].Reverse();
+                }
+                else if (i == 3)
+                {
+                    //var rev2 = Left.Reverse();
+                    var rev = Right[0].Reverse();
+                }
+                else if (i == 4)
+                {
+                    var rev2 = Left.Reverse();
+                    //var rev = Right[0].Reverse();
+                }
+                else if (i == 5)
+                {
+                    var rev2 = Left.Reverse();
+                    //var rev = Right[0].Reverse();
+                }
+
+                IsolinesList.Add(Curve.CreateTweenCurves(Left, Right[0], 30, 0.0001).ToList());
+                IsolinesList[i].Insert(0, Left);
+                IsolinesList[i].Add(Right[0]);
+                if (i == 2 || i == 5)
+                    IsolinesList[i].Reverse();
+                if (i == 0 || i == 2 || i == 3 || i == 5)
+                    IsolinesList[i].ForEach(x => x.Reverse());
+            }
+            m_IsoCurves = IsolinesList[5];
+        }
+
+        private List<(double, double)> ComputeDistance(double u, double v)
+        {
+            List<(double, double)> Distance = new List<(double, double)>();
+            var pt = new Point3d(u, v, 0);
+            var tempdist = 0.0;
+            var jlist = new List<int>();
+            var slist = new List<double>();
+
+            for (int i = 0; i < IsolinesList.Count; i++)
+            {
+                var dist = 9e9;
+                int minj = 0;
+                double t = 0;
+                double treal = 0;
+                for (int j = 0; j < IsolinesList[i].Count; j++)
+                {
+                    IsolinesList[i][j].ClosestPoint(pt, out t);
+                    tempdist = pt.DistanceTo(IsolinesList[i][j].PointAt(t));
+                    if (dist > tempdist)
+                    {
+                        dist = tempdist;
+                        minj = j;
+                        treal = t;
+                    }
+
+                }
+                if (i == 2 || i == 5)
+                    //Distance.Add((IsolinesList[i][minj].GetLength(new Interval(0,treal)), (minj / (IsolinesList[i].Count - 1))));
+                    Distance.Add((((double)minj / (IsolinesList[i].Count - 1)), (IsolinesList[i][minj].GetLength(new Interval(treal, 1)))));
+                //Distance.Add((((double)minj / (IsolinesList[i].Count - 1)), (IsolinesList[i][minj].GetLength(new Interval(0, treal)))));
+
+                else
+                    //Distance.Add((IsolinesList[i][minj].GetLength(new Interval(treal, 1)), (minj / (IsolinesList[i].Count - 1))));
+                    Distance.Add((((double)minj / (IsolinesList[i].Count - 1)), (IsolinesList[i][minj].GetLength(new Interval(0, treal)))));
+                //Distance.Add((((double)minj / (IsolinesList[i].Count - 1)), (IsolinesList[i][minj].GetLength(new Interval(treal, 1)))));
+
+            }
+
+            return Distance;
+        }
+
+        private List<(double, double)> ComputeDistance2(double u, double v)
+        {
+            List<(double, double)> Distance = new List<(double, double)>();
+            double s = -1, d = -1, MinDt, Dt;
+            Point3d Pt = new Point3d(u, v, 0), ClosestPt;
+            double t;
+            Interval subdomain;
+            Point3d PtS, PtE;
+
+            for (int i = 0; i < IsolinesList.Count; i++)
+            {
+                MinDt = 9E9;
+                for (int j = 0; j < IsolinesList[i].Count; j++)
+                {
+                    PtS = IsolinesList[i][j].PointAtStart;
+                    PtE = IsolinesList[i][j].PointAtEnd;
+                    IsolinesList[i][j].ClosestPoint(Pt, out t);
+                    ClosestPt = IsolinesList[i][j].PointAt(t);
+                    Dt = Pt.DistanceTo(ClosestPt);
+
+                    if (Dt < MinDt)
+                    {
+                        MinDt = Dt;
+
+                        subdomain = new Interval(IsolinesList[i][j].Domain.Min, t);
+                        d = IsolinesList[i][j].GetLength(subdomain);
+                        s = (double)j / (double)(IsolinesList[i].Count - 1);
+                    }
+                }
+                Distance.Add((s, d));
+            }
+
+            return Distance;
+        }
+
+        private List<(double, double)> ComputeDistance3(double u, double v)
+        {
+            List<(double, double)> Distance = new List<(double, double)>();
+            int j, k;
+            Vector3d Vec = new Vector3d(), Vec1 = new Vector3d(), Vec2 = new Vector3d(), Vec3 = new Vector3d();
+            Point3d Pt = new Point3d(u, v, 0);
+            List<double> ds = new List<double>(), ss = new List<double>();
+
+            for (int i = 0; i < m_DomainPolygon.Count; i++)
+            {
+                j = (i + 1) % m_DomainPolygon.Count;
+                Vec1 = Pt - m_DomainPolygon[i];
+                Vec2 = Pt - m_DomainPolygon[j];
+                Vec3 = m_DomainPolygon[j] - m_DomainPolygon[i];
+
+                //Vec = Vec1 + Vec2 - Vec3;
+                //ds.Add(Vec.Length);
+                ds.Add(Vec1.Length + Vec2.Length - Vec3.Length);
+            }
+
+            for (int i = 0; i < ds.Count; i++)
+            {
+                j = (i - 1 + m_DomainPolygon.Count) % m_DomainPolygon.Count;
+                k = (i + 1) % m_DomainPolygon.Count;
+
+                if (ds[j] == 0)
+                    ss.Add(0);
+                else
+                    ss.Add(ds[j] / (ds[j] + ds[k]));
+            }
+
+            for (int i = 0; i < ds.Count; i++)
+                Distance.Add((ss[i], ds[i]));
+
+            return Distance;
         }
 
         private List<(double, double)> ComputeRadialDistanceFunctionforKato(double u, double v, int n)
         {
             List<(double, double)> output = new List<(double, double)>();
             int i_before = 0, i_after = 0, i_afterafter = 0;
+            int j;
 
             for (int i = 0; i < n; i++)
             {
@@ -581,15 +1213,16 @@ namespace Grasshopper2
 
                 if (!A || !B || (c_i - c_i_0).Length > 0.000001 || (e_i - e_i0).Length > 0.000001) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Radial distance function domain line Intersection problem!!");
 
+                j = (i + 1) % (m_DomainPolygon.Count);
                 //output.Add(((new Point3d(u, v, 0) - e_i).Length, (e_i - m_DomainPolygon[i]).Length));
-                output.Add(((e_i - m_DomainPolygon[i]).Length, (new Point3d(u, v, 0) - e_i).Length));
+                output.Add(((e_i - m_DomainPolygon[i]).Length / (m_DomainPolygon[j] - m_DomainPolygon[i]).Length, (new Point3d(u, v, 0) - e_i).Length));
             }
             return output;
         }
 
         private static void ComputeDomainPolygon()
         {
-            double TotL = 0, L;
+            /*double TotL = 0, L;
             List<double> Ls = new List<double>();
             for (int i = 0; i < m_Curves.Count; i++)
             {
@@ -615,7 +1248,11 @@ namespace Grasshopper2
             {
                 Pt = new Point3d(Math.Cos(Alphas[i]), Math.Sin(Alphas[i]), 0);
                 m_DomainPolygon.Add(Pt);
-            }
+            }*/
+
+            m_DomainPolygon = new List<Point3d>();
+            for (int i = 0; i < m_Curves.Count; i++)
+                m_DomainPolygon.Add(new Point3d(m_Curves[i].PointAtStart.X, m_Curves[i].PointAtStart.Y, 0)); //m_DomainPolygon.Add(new Point3d(0.1 * m_Curves[i].PointAtStart.X, 0.1 * m_Curves[i].PointAtStart.Y, 0));
 
             m_DPolygonLines = new List<Line>();
             for (int i = 0; i < m_DomainPolygon.Count - 1; i++)
