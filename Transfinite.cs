@@ -563,7 +563,7 @@ namespace Grasshopper2
             }
             for (int i = 0; i < d_i.Count; i++)
             {
-                d_i[i] = 1 -(Math.Abs( w_i[i]) + (w_i[(i + 1) % w_i.Count] - w_i[i]) * s_i[i]);
+                d_i[i] = (1-Math.Abs( w_i[i] + (w_i[(i + 1) % w_i.Count] - w_i[i])) * s_i[i]);
             }
             List<(double, double)> Distance = new List<(double, double)>();
 
@@ -697,24 +697,24 @@ namespace Grasshopper2
                 Ptss.Add(Pts);
             }
 
-            //for (v = 11; v <= 20.0001; v = v + 1)
-            //{
-            //    Pts = new List<Point3d>();
-            //    for (double u = 0; u <= 10.0001; u = u + 1)
-            //    {
-            //        if (u > 5)
-            //        {
-            //            m_SrfPts.Add(new Point3d(u, v, 0));
-            //            Pts.Add(new Point3d(u, v, 0));
-            //        }
-            //        else
-            //        {
-            //            m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
-            //            Pts.Add(Kato_Suv(u, v));
-            //        }
-            //    }
-            //    Ptss.Add(Pts);
-            //}
+            for (v = 11; v <= 20.0001; v = v + 1)
+            {
+                Pts = new List<Point3d>();
+                for (double u = 0; u <= 10.0001; u = u + 1)
+                {
+                    //if (u > 5)
+                    //{
+                    //    m_SrfPts.Add(new Point3d(u, v, 0));
+                    //    Pts.Add(new Point3d(u, v, 0));
+                    //}
+                    //else
+                    //{
+                        m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+                        Pts.Add(Kato_Suv(u, v));
+                    //}
+                }
+                Ptss.Add(Pts);
+            }
 
         }
 
