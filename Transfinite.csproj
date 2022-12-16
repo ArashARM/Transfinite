@@ -7,6 +7,10 @@
     <Description>Description of Transfinite</Description>
     <TargetExt>.gha</TargetExt>
   </PropertyGroup>
+	
+  <ItemGroup>
+    <Compile Remove="Transfinite - Copy.cs" />
+  </ItemGroup>
   
   <ItemGroup>
     <PackageReference Include="Accord.Math" Version="3.8.0" />
