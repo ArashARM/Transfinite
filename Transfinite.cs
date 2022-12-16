@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Rhino.Geometry.Intersect;
 using System.Linq;
 using System.Diagnostics;
+using static GrasshopperProjects.Harmonic;//for harmonic
 //using Accord.Math;
 //using Accord.Math.Geometry;
 
@@ -691,8 +692,12 @@ namespace Grasshopper2
                 Pts = new List<Point3d>();
                 for (double u = 0; u <= 10.0001; u = u + 1)
                 {
-                    m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
-                    Pts.Add(Kato_Suv(u, v));
+                    //m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+                    //Pts.Add(Kato_Suv(u, v));
+
+                    Point3d onecalculation = Kato_Suv(u, v);
+                    m_SrfPts.Add(onecalculation); //m_SrfPts.Add(new Point3d(u, v, 0));
+                    Pts.Add(onecalculation);
                 }
                 Ptss.Add(Pts);
             }
@@ -709,8 +714,11 @@ namespace Grasshopper2
                     //}
                     //else
                     //{
-                        m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
-                        Pts.Add(Kato_Suv(u, v));
+                    Point3d onecalculation = Kato_Suv(u, v);
+                        //m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
+                        //Pts.Add(Kato_Suv(u, v));
+                    m_SrfPts.Add(onecalculation); //m_SrfPts.Add(new Point3d(u, v, 0));
+                    Pts.Add(onecalculation);
                     //}
                 }
                 Ptss.Add(Pts);
@@ -922,12 +930,95 @@ namespace Grasshopper2
             return false;
         }
 
+        private List<(double,double)> HarmonicCreate(double u, double v, int n)
+        {
+            List<(double, double)> output = new List<(double, double)>();
+            int i_before = 0, i_after = 0, i_afterafter = 0;
+            int j;
+
+            double value = 1;
+            Point3d point = new Point3d(u, v, 0);
+            for (int i = 0; i < n; i++)
+            {
+
+                i_before = IndexWrapper((i - 1), n);
+                i_after = IndexWrapper((i + 1), n);
+                i_afterafter = IndexWrapper((i + 2), n);
+
+                ///***********
+                ///harmonic map created for si
+                ///***********
+                double[] min = { 0, 0 }, max = { 20, 20 }; // domain polygon size
+                HarmonicMap map;
+                int levels = 9;//???
+                map = harmonic_create(min, max, levels);
+
+                ///Assigned Value on domain points
+                List<Point3d> DomainPolygonHarmonic = new List<Point3d>(m_DomainPolygon);
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ii++)
+                {
+                    if (ii == i_after) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
+                    else if (ii == i_afterafter) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
+                }
+                ////
+
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ++ii)
+                {
+                    int j0 = (ii + 1) % 6;
+                    harmonic_add_line(map, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[j0]);
+                }
+                harmonic_solve(map, 1.0e-5, false);
+                ///****
+                ///
+                bool success_si = harmonic_eval(map, point, out double result_si);//harmonic calculation
+                ///
+
+                ///***********
+                ///harmonic map created for di
+                ///***********
+                double[] min_di = { 0, 0 }, max_di = { 20, 20 }; // domain polygon size
+                HarmonicMap map_di;
+                int levels_di = 9;//???
+                map_di = harmonic_create(min_di, max_di, levels_di);
+
+                ///Assigned Value on domain points
+                DomainPolygonHarmonic = new List<Point3d>(m_DomainPolygon);
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ii++)
+                {
+                    if (ii == i) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, 0));
+                    else if (ii == i_after) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, 0));
+                    else DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
+                }
+                ////
+
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ++ii)
+                {
+                    int j0 = (ii + 1) % 6;
+                    harmonic_add_line(map_di, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[j0]);
+                }
+                harmonic_solve(map_di, 1.0e-5, false);
+                ///*****
+                ///
+                bool success_di = harmonic_eval(map_di, point, out double result_di);//harmonic calculation
+                ///
+
+
+                if (success_si == false) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Harmonic function si!!");
+                if (success_di == false) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Harmonic function di!!");
+
+                output.Add((result_si,result_di));//si_di
+            }
+
+            return output;
+        }
+
         private Point3d Kato_Suv(double u, double v)
         {
             //List<(double, double)> si_di = ComputeRadialDistanceFunctionforKato(u, v, m_Curves.Count);
             //List<(double, double)> si_di = ComputeDistance2(u, v);
             //List<(double, double)> si_di = ComputeDistance3(u, v);
-            List<(double, double)> si_di = MVC(u, v);
+            //List<(double, double)> si_di = MVC(u, v);
+            List<(double, double)> si_di = HarmonicCreate(u, v, m_Curves.Count);
 
             //int j;
             //Line Ln;
