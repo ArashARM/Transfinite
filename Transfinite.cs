@@ -214,6 +214,7 @@ namespace Grasshopper2
             double Nu = ComputeSPsideBLFunction(Dvalues, Side);
 
             ComputeDomainPolygon();
+            HarmonicMapCreate(m_Curves.Count);
             ComputeIsolines();
 
             Point3d Pt;
@@ -930,17 +931,16 @@ namespace Grasshopper2
             return false;
         }
 
-        private List<(double,double)> HarmonicCreate(double u, double v, int n)
+        public List<HarmonicMap> HarmonicMapList_si = new List<HarmonicMap>();
+        public List<HarmonicMap> HarmonicMapList_di = new List<HarmonicMap>();
+        private void HarmonicMapCreate(int n)
         {
             List<(double, double)> output = new List<(double, double)>();
             int i_before = 0, i_after = 0, i_afterafter = 0;
             int j;
-
             double value = 1;
-            Point3d point = new Point3d(u, v, 0);
             for (int i = 0; i < n; i++)
             {
-
                 i_before = IndexWrapper((i - 1), n);
                 i_after = IndexWrapper((i + 1), n);
                 i_afterafter = IndexWrapper((i + 2), n);
@@ -969,9 +969,8 @@ namespace Grasshopper2
                 }
                 harmonic_solve(map, 1.0e-5, false);
                 ///****
-                ///
-                bool success_si = harmonic_eval(map, point, out double result_si);//harmonic calculation
-                ///
+                HarmonicMapList_si.Add(map);
+
 
                 ///***********
                 ///harmonic map created for di
@@ -998,17 +997,29 @@ namespace Grasshopper2
                 }
                 harmonic_solve(map_di, 1.0e-5, false);
                 ///*****
-                ///
-                bool success_di = harmonic_eval(map_di, point, out double result_di);//harmonic calculation
-                ///
+                HarmonicMapList_di.Add(map_di);
+            }
 
+        }
+
+        private List<(double, double)> HarmonicMapCall(double u, double v, int n)
+        {
+            List<(double, double)> output = new List<(double, double)>();
+            int j;
+            Point3d point = new Point3d(u, v, 0);
+            for (int i = 0; i < n; i++)
+            {
+                ///
+                bool success_si = harmonic_eval(HarmonicMapList_si[i], point, out double result_si);//harmonic calculation
+                ///
+                bool success_di = harmonic_eval(HarmonicMapList_di[i], point, out double result_di);//harmonic calculation
+                ///
 
                 if (success_si == false) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Harmonic function si!!");
                 if (success_di == false) AddRuntimeMessage(GH_RuntimeMessageLevel.Error, "Harmonic function di!!");
 
-                output.Add((result_si,result_di));//si_di
+                output.Add((result_si, result_di));//si_di
             }
-
             return output;
         }
 
@@ -1018,7 +1029,7 @@ namespace Grasshopper2
             //List<(double, double)> si_di = ComputeDistance2(u, v);
             //List<(double, double)> si_di = ComputeDistance3(u, v);
             //List<(double, double)> si_di = MVC(u, v);
-            List<(double, double)> si_di = HarmonicCreate(u, v, m_Curves.Count);
+            List<(double, double)> si_di = HarmonicMapCall(u, v, m_Curves.Count);
 
             //int j;
             //Line Ln;
