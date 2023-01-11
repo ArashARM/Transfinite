@@ -31,7 +31,6 @@ namespace Grasshopper2
         private static List<Curve> m_Curves;
         private static List<Curve> m_CurvesSerhat;
         private static List<Vector3d> m_Ts;
-        private static List<Vector3d> m_TsSerhat;
         private static List<List<Vector3d>> m_Tss;
         private static List<List<Vector3d>> m_TssSerhat;
         private static List<Curve> m_IsoCurves;
