@@ -355,47 +355,42 @@ namespace GrasshopperProjects
             }
         }
 
-        //void harmonic_add_curve(HarmonicMap map, Point3d[] points, int n)
-        //{
-        //    double tmp;
-        //    int resolution = map.size;
-        //    double[] coeff = new double[n];
-        //    Point3d[] p = new Point3d[2];
-        //    Point3d from = 0;
-        //    Point3d to = 1;
-        //    from[0] = points[0]; from[1] = points[1]; from[2] = points[2];
-        //    for (int i = 1; i <= resolution; ++i)
-        //    {
-        //        double u = (double)i / resolution;
-        //        /* Compute Bernstein polynomials */
-        //        coeff[0] = 1.0;
-        //        for (int j = 1; j < n; ++j)
-        //        {
-        //            double saved = 0.0;
-        //            for (int k = 0; k < j; ++k)
-        //            {
-        //                tmp = coeff[k];
-        //                coeff[k] = saved + tmp * (1.0 - u);
-        //                saved = tmp * u;
-        //            }
-        //            coeff[j] = saved;
-        //        }
-        //        /* Evaluate the curve */
-        //        to[0] = 0.0; to[1] = 0.0; to[2] = 0.0;
-        //        for (int j = 0; j < n; ++j)
-        //        {
-        //            for (int k = 0; k < 3; ++k)
-        //                to[k] += points[3 * j + k] * coeff[j];
-        //        }
-        //        /* Draw a segment */
-        //        harmonic_add_line(map, from, to);
-        //        /* Swap from & to */
-        //        tmp = to;
-        //        to = from;
-        //        from = tmp;
-        //    }
-        //    coeff = null;
-        //}
+        public static void harmonic_add_curve(HarmonicMap map, Point3d[] points, int n)
+        {
+            double tmp;
+            int resolution = map.size;
+            double[] coeff = new double[n];
+            Point3d from, to;
+            from = new Point3d(points[0].X, points[0].Y, points[0].Z);
+            for (int i = 1; i <= resolution; ++i)
+            {
+                double u = (double)i / resolution;
+                /* Compute Bernstein polynomials */
+                coeff[0] = 1.0;
+                for (int j = 1; j < n; ++j)
+                {
+                    double saved = 0.0;
+                    for (int k = 0; k < j; ++k)
+                    {
+                        tmp = coeff[k];
+                        coeff[k] = saved + tmp * (1.0 - u);
+                        saved = tmp * u;
+                    }
+                    coeff[j] = saved;
+                }
+                /* Evaluate the curve */
+                to = new Point3d(0.0, 0.0, 0.0);
+                for (int j = 0; j < n; ++j)
+                {
+                    to += points[j] * coeff[j];
+                }
+                /* Draw a segment */
+                harmonic_add_line(map, from, to);
+                /* Swap from & to */
+                (from, _) = (to, from);
+            }
+            coeff = null;
+        }
 
         public static void harmonic_solve(HarmonicMap map, double epsilon, bool biharmonic)
         {
@@ -443,7 +438,7 @@ namespace GrasshopperProjects
                     if (map.grid[j * n + i].boundary)
                         f.Write("255 0 0 ");
                     else
-                        f.Write("0 0 " + ((int)Math.Round(map.grid[j * n + i].value * 255.0)).ToString("N6") );
+                        f.Write("0 0 " + ((int)Math.Round(map.grid[j * n + i].value * 255.0)).ToString("N6"));
                 //f.Write("0 0 %d ", (int)Math.Round(map.grid[j * n + i].value * 255.0));
                 f.Write("\n");
             }

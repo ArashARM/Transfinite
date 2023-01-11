@@ -6,6 +6,11 @@ using Rhino.Geometry.Intersect;
 using System.Linq;
 using System.Diagnostics;
 using static GrasshopperProjects.Harmonic;//for harmonic
+using Rhino.Commands;
+using System.IO;
+using Accord;
+using Grasshopper;
+using Grasshopper.Kernel.Data;
 //using Accord.Math;
 //using Accord.Math.Geometry;
 
@@ -24,8 +29,11 @@ namespace Grasshopper2
         }
 
         private static List<Curve> m_Curves;
+        private static List<Curve> m_CurvesSerhat;
         private static List<Vector3d> m_Ts;
+        private static List<Vector3d> m_TsSerhat;
         private static List<List<Vector3d>> m_Tss;
+        private static List<List<Vector3d>> m_TssSerhat;
         private static List<Curve> m_IsoCurves;
         private static List<Point3d> m_DomainPolygon;
         private static List<Line> m_DPolygonLines;
@@ -41,6 +49,8 @@ namespace Grasshopper2
         private static double m_PlnAverageError;
         public static List<Point3d> m_uv;
         private List<List<Curve>> IsolinesList = new List<List<Curve>>();
+
+        public static List<Point3d> m_uvSerhat;
 
         /// <summary>
         /// Registers all the input parameters for this component.
@@ -68,13 +78,14 @@ namespace Grasshopper2
         {
             pManager.AddCurveParameter("Curves", "Curves", "Curves", GH_ParamAccess.list);
             pManager.AddLineParameter("DomainPolygon", "DomainPolygon", "DomainPolygon", GH_ParamAccess.list);
-            pManager.AddNumberParameter("landa", "landa", "landa", GH_ParamAccess.item);
-            pManager.AddNumberParameter("kappa", "kappa", "kappa", GH_ParamAccess.item);
-            pManager.AddNumberParameter("nu", "nu", "nu", GH_ParamAccess.item);
-            pManager.AddGenericParameter("kato", "kato", "kato", GH_ParamAccess.item);
+            pManager.AddGenericParameter("landa", "landa", "landa", GH_ParamAccess.item);
+            pManager.AddGenericParameter("kappa", "kappa", "kappa", GH_ParamAccess.item);
+            pManager.AddGenericParameter("nu", "nu", "nu", GH_ParamAccess.item);
+            pManager.AddGenericParameter("kato", "kato", "kato", GH_ParamAccess.list);
             pManager.AddGenericParameter("kato_pointlist", "kato_pointlist", "kato_pointlist", GH_ParamAccess.list);
             pManager.AddBrepParameter("Patches", "Patches", "Patches", GH_ParamAccess.list);
             pManager.AddNumberParameter("PlnError", "PlnError", "PlnError", GH_ParamAccess.item);
+            pManager.AddGenericParameter("Maplist", "Maplist", "Map string list", GH_ParamAccess.tree);
 
         }
 
@@ -86,6 +97,8 @@ namespace Grasshopper2
         {
             int N = 0;
             m_Curves = new List<Curve>();
+            m_CurvesSerhat = new List<Curve>();
+            List<List<Point3d>> curvepoints = new List<List<Point3d>>();
             var ExtCurve = false;
 
             if (DA.GetDataList(5, m_Curves))
@@ -139,6 +152,11 @@ namespace Grasshopper2
                 Curve Crv2 = Curve.CreateInterpolatedCurve(Pts2, 3);
                 Curve Crv3 = Curve.CreateInterpolatedCurve(Pts3, 3);
                 Curve Crv4 = Curve.CreateInterpolatedCurve(Pts4, 3);
+                for (int add = 1; add < Pts4.Count; add++)
+                {
+                    Pts3.Add(Pts4[add]);
+                }
+                Curve Crv34 = Curve.CreateInterpolatedCurve(Pts3, 1);
                 Curve Crv5 = Curve.CreateInterpolatedCurve(Pts5, 3);
                 Curve Crv6 = Curve.CreateInterpolatedCurve(Pts6, 3);
                 m_Curves.Add(Crv1);
@@ -147,6 +165,18 @@ namespace Grasshopper2
                 m_Curves.Add(Crv4);
                 m_Curves.Add(Crv5);
                 m_Curves.Add(Crv6);
+
+                curvepoints.Add(Pts1);
+                curvepoints.Add(Pts2);
+                curvepoints.Add(Pts3);
+                curvepoints.Add(Pts5);
+                curvepoints.Add(Pts6);
+
+                m_CurvesSerhat.Add(Crv1);
+                m_CurvesSerhat.Add(Crv2);
+                m_CurvesSerhat.Add(Crv34);
+                m_CurvesSerhat.Add(Crv5);
+                m_CurvesSerhat.Add(Crv6);
 
                 m_Ts = new List<Vector3d>();
                 m_Ts.Add(new Vector3d(1, 1, 1));
@@ -186,13 +216,42 @@ namespace Grasshopper2
                 Ts.Add(new Vector3d(1, 0, 1));
                 Ts.Add(new Vector3d(1, 0, 1));
                 m_Tss.Add(Ts);
+
+                ////
+
+                m_TssSerhat = new List<List<Vector3d>>();
+                List<Vector3d> TsSerhat = new List<Vector3d>();
+                TsSerhat.Add(new Vector3d(1, 1, 0));
+                TsSerhat.Add(new Vector3d(-1, 1, 0));
+                m_TssSerhat.Add(TsSerhat);
+
+                TsSerhat = new List<Vector3d>();
+                TsSerhat.Add(new Vector3d(-1, 1, 1));
+                TsSerhat.Add(new Vector3d(-1, -1, 1));
+                m_TssSerhat.Add(TsSerhat);
+
+                TsSerhat = new List<Vector3d>();
+                TsSerhat.Add(new Vector3d(-1, -1, 1));
+                TsSerhat.Add(new Vector3d(-1, -1, 1));
+                m_TssSerhat.Add(TsSerhat);
+
+                TsSerhat = new List<Vector3d>();
+                TsSerhat.Add(new Vector3d(-1, -1, 1));
+                TsSerhat.Add(new Vector3d(1, -1, 1));
+                m_TssSerhat.Add(TsSerhat);
+
+                //TsSerhat = new List<Vector3d>();
+                //TsSerhat.Add(new Vector3d(0, -1, 1));
+                //TsSerhat.Add(new Vector3d(0, -1, 1));
+                //m_TssSerhat.Add(TsSerhat);
+
+                TsSerhat = new List<Vector3d>();
+                TsSerhat.Add(new Vector3d(1, -1, 1));
+                TsSerhat.Add(new Vector3d(1, 1, 1));
+                m_TssSerhat.Add(TsSerhat);
             }
 
-
             List<double> Dvalues = new List<double>();
-            int Side = 0;
-            //DA.GetDataList(0, Dvalues);
-            //DA.GetData(1,ref Side);
 
             double u = 0, v = 0;
             int u_scl = 0, v_scl = 0;
@@ -203,38 +262,68 @@ namespace Grasshopper2
             DA.GetData(4, ref N);
             if (u_scl == 0 || v_scl == 0) return;
 
-            double Kappa = 0;
-
-            double landa = ComputeSideBLFunction(Dvalues, Side);
-            if (Side != 0)
-                Kappa = ComputeCornerBLFunction(Dvalues, Side - 1, Side);
-            else
-                Kappa = ComputeCornerBLFunction(Dvalues, Dvalues.Count - 1, Side);
-
-            double Nu = ComputeSPsideBLFunction(Dvalues, Side);
+            m_uvSerhat = new List<Point3d>();
 
             ComputeDomainPolygon();
-            HarmonicMapCreate(m_Curves.Count);
-            ComputeIsolines();
+            //HarmonicMapCreate_line(m_Curves.Count);
+            //HarmonicMapCreate_curve(m_Curves.Count);
+            //HarmonicMapCreate_curve1(m_Curves.Count);
+            HarmonicMapCreate_curve(curvepoints, curvepoints.Count);
+
+            //ComputeIsolines();
+
+
 
             Point3d Pt;
             Vector3d Vec;
             int k;
             double t;
-            for (int i = 0; i < m_Curves.Count; i++)
+            //for (int i = 0; i < m_Curves.Count; i++)
+            //{
+            //    k = (i + 1) % m_Curves.Count;
+            //    for (int j = 0; j <= 100; j++)
+            //    {
+            //        t = m_Curves[i].Domain.Min + (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min) * (double)j / 100.0;
+            //        Pt = m_Curves[i].PointAt(t);
+            //        //Vec = m_Ts[i] + (m_Ts[k] - m_Ts[i]) * (double)j/100.0;
+            //        Vec = m_Tss[i][0] + (m_Tss[i][1] - m_Tss[i][0]) * (double)j / 100.0;
+
+
+            //        m_DPolygonLines.Add(new Line(Pt, Pt + Vec));
+            //    }
+            //}
+
+            ///*******
+            # region ribbon visualization
+            ////
+            List<Line> ribbonlines = new List<Line>();
+            for (int i = 0; i < m_CurvesSerhat.Count; i++)
             {
-                k = (i + 1) % m_Curves.Count;
+                k = (i + 1) % m_CurvesSerhat.Count;
                 for (int j = 0; j <= 100; j++)
                 {
-                    t = m_Curves[i].Domain.Min + (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min) * (double)j / 100.0;
-                    Pt = m_Curves[i].PointAt(t);
+                    t = m_CurvesSerhat[i].Domain.Min + (m_CurvesSerhat[i].Domain.Max - m_CurvesSerhat[i].Domain.Min) * (double)j / 100.0;
+                    Pt = m_CurvesSerhat[i].PointAt(t);
                     //Vec = m_Ts[i] + (m_Ts[k] - m_Ts[i]) * (double)j/100.0;
-                    Vec = m_Tss[i][0] + (m_Tss[i][1] - m_Tss[i][0]) * (double)j / 100.0;
+                    Vec = m_TssSerhat[i][0] + (m_TssSerhat[i][1] - m_TssSerhat[i][0]) * (double)j / 100.0;
 
-
-                    m_DPolygonLines.Add(new Line(Pt, Pt + Vec));
+                    ribbonlines.Add(new Line(Pt, Pt + Vec));
                 }
             }
+
+            Point3d single_pt = new Point3d();
+            Line single_vec = new Line();
+
+            int curveidx = 2;
+            t = m_CurvesSerhat[curveidx].Domain.Min + (m_CurvesSerhat[curveidx].Domain.Max - m_CurvesSerhat[curveidx].Domain.Min) * (u);
+            single_pt = m_CurvesSerhat[curveidx].PointAt(t);
+            //Vec = m_TssSerhat[curveidx][0] + (m_TssSerhat[curveidx][1] - m_TssSerhat[curveidx][0]) * (double)u / 100.0;
+            Vec = m_TssSerhat[curveidx][0] + (u / (m_CurvesSerhat[curveidx].Domain.Max - m_CurvesSerhat[curveidx].Domain.Min)) * (m_TssSerhat[curveidx][1] - m_TssSerhat[curveidx][0]);
+            single_vec = new Line(single_pt, single_pt + Vec);
+            ////
+            #endregion
+            ///**********
+
 
             //ComputePatches(N);
 
@@ -244,21 +333,57 @@ namespace Grasshopper2
             var num_v = v_scl;
             //ComputeSurfacePoints2(num_u, num_v);
             //ComputeSurfacePoints3(10);
+
             ComputeSurfacePoints4(10);
+
+            //m_SrfPts.Clear();
+            //m_SrfPts.Add(Kato_Suv(0, 0));
+            //m_SrfPts.Add(Kato_Suv(1, 2));
+            //m_SrfPts.Add(Kato_Suv(2, 4));
+            //m_SrfPts.Add(Kato_Suv(3, 6));
+            //m_SrfPts.Add(Kato_Suv(4, 8));
+            //m_SrfPts.Add(Kato_Suv(4.99, 9.99));
+            //m_SrfPts.Add(Kato_Suv(8, 10));
+            //m_SrfPts.Add(Kato_Suv(6, 10));
+            //m_SrfPts.Add(Kato_Suv(5, 10));
+            //m_SrfPts.Add(Kato_Suv(5, 11));
+            //m_SrfPts.Add(Kato_Suv(5, 12));
+            //m_SrfPts.Add(Kato_Suv(5, 16));
+
+
             //ComputeDistance3(0.2, 0.6);
             //m_SrfPts = new List<Point3d>();
             //m_SrfPts.Add(Kato_Suv(0.5, 0.5));
             //m_SrfPts.Add(Kato_Suv(1, 0.5));
             //m_Curves = m_IsoCurves;
+
+
+            ///************
+            #region Harmonic map datatree contruction for visualization
+            ///
+            DataTree<string> stringtree = new DataTree<string>();
+            for (int i = 0; i < HarmonicMapList_si.Count; i++)
+            {
+                stringtree.Add(writeroutput(HarmonicMapList_si[i]), new GH_Path(new int[] { 0, i }));
+            }
+            for (int i = 0; i < HarmonicMapList_di.Count; i++)
+            {
+                stringtree.Add(writeroutput(HarmonicMapList_di[i]), new GH_Path(new int[] { 1, i }));
+            }
+            ///
+            #endregion
+            ///************
+
             DA.SetDataList(0, m_Curves);
-            DA.SetDataList(1, m_DPolygonLines);
-            DA.SetData(2, landa);
-            DA.SetData(3, Kappa);
-            DA.SetData(4, Nu);
-            DA.SetData(5, m_SrfPt);
+            DA.SetDataList(1, ribbonlines);
+            DA.SetData(2, single_pt);
+            DA.SetData(3, single_vec);
+            DA.SetData(4, null);
+            DA.SetDataList(5, m_uvSerhat);
             DA.SetDataList(6, m_SrfPts);
             DA.SetDataList(7, m_Patches);
             DA.SetData(8, m_PlnAverageError);
+            DA.SetDataTree(9, stringtree);
         }
 
         private void ComputePatches(int N)
@@ -565,7 +690,7 @@ namespace Grasshopper2
             }
             for (int i = 0; i < d_i.Count; i++)
             {
-                d_i[i] = (1-Math.Abs( w_i[i] + (w_i[(i + 1) % w_i.Count] - w_i[i])) * s_i[i]);
+                d_i[i] = (1 - Math.Abs(w_i[i] + (w_i[(i + 1) % w_i.Count] - w_i[i])) * s_i[i]);
             }
             List<(double, double)> Distance = new List<(double, double)>();
 
@@ -708,19 +833,19 @@ namespace Grasshopper2
                 Pts = new List<Point3d>();
                 for (double u = 0; u <= 10.0001; u = u + 1)
                 {
-                    //if (u > 5)
-                    //{
-                    //    m_SrfPts.Add(new Point3d(u, v, 0));
-                    //    Pts.Add(new Point3d(u, v, 0));
-                    //}
-                    //else
-                    //{
-                    Point3d onecalculation = Kato_Suv(u, v);
+                    if (u > 5)
+                    {
+                        //m_SrfPts.Add(new Point3d(u, v, 0));
+                        Pts.Add(new Point3d(u, v, 0));
+                    }
+                    else
+                    {
+                        Point3d onecalculation = Kato_Suv(u, v);
                         //m_SrfPts.Add(Kato_Suv(u, v)); //m_SrfPts.Add(new Point3d(u, v, 0));
                         //Pts.Add(Kato_Suv(u, v));
-                    m_SrfPts.Add(onecalculation); //m_SrfPts.Add(new Point3d(u, v, 0));
-                    Pts.Add(onecalculation);
-                    //}
+                        m_SrfPts.Add(onecalculation); //m_SrfPts.Add(new Point3d(u, v, 0));
+                        Pts.Add(onecalculation);
+                    }
                 }
                 Ptss.Add(Pts);
             }
@@ -933,10 +1058,12 @@ namespace Grasshopper2
 
         public List<HarmonicMap> HarmonicMapList_si = new List<HarmonicMap>();
         public List<HarmonicMap> HarmonicMapList_di = new List<HarmonicMap>();
-        private void HarmonicMapCreate(int n)
+        private void HarmonicMapCreate_line(int n)
         {
+            HarmonicMapList_si = new List<HarmonicMap>();
+            HarmonicMapList_di = new List<HarmonicMap>();
             List<(double, double)> output = new List<(double, double)>();
-            int i_before = 0, i_after = 0, i_afterafter = 0;
+            int i_before = 0, i_after = 0, i_afterafter = 0, i_afterafterafter = 0;
             int j;
             double value = 1;
             for (int i = 0; i < n; i++)
@@ -944,14 +1071,15 @@ namespace Grasshopper2
                 i_before = IndexWrapper((i - 1), n);
                 i_after = IndexWrapper((i + 1), n);
                 i_afterafter = IndexWrapper((i + 2), n);
+                i_afterafterafter = IndexWrapper((i + 3), n);
 
                 ///***********
-                ///harmonic map created for si
+                ///harmonic map created for si -----------------------------------
                 ///***********
                 double[] min = { 0, 0 }, max = { 20, 20 }; // domain polygon size
-                HarmonicMap map;
+                HarmonicMap map_si;
                 int levels = 9;//???
-                map = harmonic_create(min, max, levels);
+                map_si = harmonic_create(min, max, levels);
 
                 ///Assigned Value on domain points
                 List<Point3d> DomainPolygonHarmonic = new List<Point3d>(m_DomainPolygon);
@@ -959,21 +1087,26 @@ namespace Grasshopper2
                 {
                     if (ii == i_after) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
                     else if (ii == i_afterafter) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
+                    //else if (ii == i_afterafterafter) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
+                    else if (ii == i_before) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, 0));
+                    else if (ii == i) DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, 0));
+                    else DomainPolygonHarmonic[ii] = (new Point3d(DomainPolygonHarmonic[ii].X, DomainPolygonHarmonic[ii].Y, value));
                 }
                 ////
 
                 for (int ii = 0; ii < DomainPolygonHarmonic.Count; ++ii)
                 {
                     int j0 = (ii + 1) % 6;
-                    harmonic_add_line(map, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[j0]);
+                    harmonic_add_line(map_si, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[j0]);
                 }
-                harmonic_solve(map, 1.0e-5, false);
+                harmonic_solve(map_si, 1.0e-5, false);
                 ///****
-                HarmonicMapList_si.Add(map);
-
+                HarmonicMapList_si.Add(map_si);
+                ////
+                ////--------------------------------------------------------------
 
                 ///***********
-                ///harmonic map created for di
+                ///harmonic map created for di -----------------------------------
                 ///***********
                 double[] min_di = { 0, 0 }, max_di = { 20, 20 }; // domain polygon size
                 HarmonicMap map_di;
@@ -998,6 +1131,195 @@ namespace Grasshopper2
                 harmonic_solve(map_di, 1.0e-5, false);
                 ///*****
                 HarmonicMapList_di.Add(map_di);
+                ////
+                ////-------------------------------------------------------------
+            }
+
+        }
+
+        private void HarmonicMapCreate_curve(List<List<Point3d>> curvepointlist, int n)
+        {
+            HarmonicMapList_si = new List<HarmonicMap>();
+            HarmonicMapList_di = new List<HarmonicMap>();
+            List<(double, double)> output = new List<(double, double)>();
+            int i_before, i_after;
+            double value = 1;
+
+            //// Domain curve creation without "value" or "z"
+            List<Point3d[]> DomainPolygonHarmonic_main = new List<Point3d[]> { };
+            for (int i = 0; i < n; i++)
+            {
+                DomainPolygonHarmonic_main.Add(curvepointlist[i].ToArray());
+            }
+
+            for (int i = 0; i < DomainPolygonHarmonic_main.Count; i++)
+            {
+                i_before = IndexWrapper((i - 1), DomainPolygonHarmonic_main.Count);
+                int i_beforebefore = IndexWrapper((i - 2), DomainPolygonHarmonic_main.Count);
+                i_after = IndexWrapper((i + 1), DomainPolygonHarmonic_main.Count);
+
+                ///***********
+                ///harmonic map created for si -----------------------------------
+                ///***********
+                double[] min = { 0, 0 }, max = { 20, 20 }; // domain polygon size
+                HarmonicMap map_si;
+                int levels = 9;//???
+                map_si = harmonic_create(min, max, levels);
+
+                ///Assigned Value on domain points, si
+                List<Point3d[]> DomainPolygonHarmonic = new List<Point3d[]>();
+                for (int ii = 0; ii < DomainPolygonHarmonic_main.Count; ii++)
+                {
+                    DomainPolygonHarmonic.Add(new Point3d[DomainPolygonHarmonic_main[ii].Length]);
+                    if (ii == i_after)
+                    {
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, value);
+                        }
+                    }
+                    else if (ii == i_before)
+                    {
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, 0);
+                        }
+                    }
+                    else if (ii == i)
+                    {
+                        double stepsize = value / (DomainPolygonHarmonic[ii].Length - 1);
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, stepsize * pt);
+                        }
+                    }
+                    else if (ii == i_beforebefore)
+                    {
+                        double stepsize = value / (DomainPolygonHarmonic[ii].Length - 1);
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, stepsize * ((DomainPolygonHarmonic[ii].Length - 1) - pt));
+                        }
+                    }
+                    else
+                    {
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, value);
+                        }
+                    }
+                }
+                ////
+
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ++ii)
+                {
+                    ///
+                    ///middle point repeat
+                    if (ii == 2)
+                    {
+                        List<Point3d> idle = DomainPolygonHarmonic[ii].ToList();
+                        for (int xx = 0; xx < idle.Count; xx++)
+                        {
+                            if (xx == 3)
+                            {
+                                Point3d asd = new Point3d(idle[xx]);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                //idle.Insert(xx, asd);
+                                break;
+                            }
+                        }
+                        DomainPolygonHarmonic[ii] = idle.ToArray();
+                    }
+                    ////
+                    ///
+                    harmonic_add_curve(map_si, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[ii].Length);
+                }
+                harmonic_solve(map_si, 1.0e-5, false);
+                ///****
+                HarmonicMapList_si.Add(map_si);
+                ////
+                ////--------------------------------------------------------------
+
+                ///***********
+                ///harmonic map created for di -----------------------------------
+                ///***********
+                double[] min_di = { 0, 0 }, max_di = { 20, 20 }; // domain polygon size
+                HarmonicMap map_di;
+                int levels_di = 9;//???
+                map_di = harmonic_create(min_di, max_di, levels_di);
+
+                ///Assigned Value on domain points, di
+                DomainPolygonHarmonic = new List<Point3d[]>();
+                for (int ii = 0; ii < DomainPolygonHarmonic_main.Count; ii++)
+                {
+                    DomainPolygonHarmonic.Add(new Point3d[DomainPolygonHarmonic_main[ii].Length]);
+                    if (ii == i_after)
+                    {
+                        double stepsize = value / (DomainPolygonHarmonic[ii].Length - 1);
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, stepsize * pt);
+                        }
+                    }
+                    else if (ii == i_before)
+                    {
+                        double stepsize = value / (DomainPolygonHarmonic[ii].Length - 1);
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, stepsize * ((DomainPolygonHarmonic[ii].Length - 1) - pt));
+                        }
+                    }
+                    else if (ii == i)
+                    {
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, 0);
+                        }
+                    }
+                    else
+                    {
+                        for (int pt = 0; pt < DomainPolygonHarmonic[ii].Length; pt++)
+                        {
+                            DomainPolygonHarmonic[ii][pt] = new Point3d(DomainPolygonHarmonic_main[ii][pt].X, DomainPolygonHarmonic_main[ii][pt].Y, value);
+                        }
+                    }
+                }
+                ////
+
+                for (int ii = 0; ii < DomainPolygonHarmonic.Count; ++ii)
+                {
+                    ///
+                    ///middle point repeat
+                    if (ii == 2)
+                    {
+                        List<Point3d> idle = DomainPolygonHarmonic[ii].ToList();
+                        for (int xx = 0; xx < idle.Count; xx++)
+                        {
+                            if (xx == 3)
+                            {
+                                Point3d asd = new Point3d(idle[xx]);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                idle.Insert(xx, asd);
+                                break;
+                            }
+                        }
+                        DomainPolygonHarmonic[ii] = idle.ToArray();
+                    }
+                    ////
+                    ///
+                    harmonic_add_curve(map_di, DomainPolygonHarmonic[ii], DomainPolygonHarmonic[ii].Length);
+                }
+                harmonic_solve(map_di, 1.0e-5, false);
+                ///*****
+                HarmonicMapList_di.Add(map_di);
+                ////
+                ////-------------------------------------------------------------
             }
 
         }
@@ -1029,8 +1351,9 @@ namespace Grasshopper2
             //List<(double, double)> si_di = ComputeDistance2(u, v);
             //List<(double, double)> si_di = ComputeDistance3(u, v);
             //List<(double, double)> si_di = MVC(u, v);
-            List<(double, double)> si_di = HarmonicMapCall(u, v, m_Curves.Count);
-
+            //List<(double, double)> si_di = HarmonicMapCall(u, v, m_Curves.Count);
+            List<(double, double)> si_di = HarmonicMapCall(u, v, m_CurvesSerhat.Count);//curve part
+            m_uvSerhat.Add(new Point3d(u, v, 0));
             //int j;
             //Line Ln;
             //Point3d Pt;
@@ -1064,10 +1387,10 @@ namespace Grasshopper2
             Point3d r_sum = new Point3d();
             List<double> Value = ComputeSPsideBLFunction1(d_i);
             int j;
-            for (int i = 0; i < m_Curves.Count; i++)
+            for (int i = 0; i < m_CurvesSerhat.Count; i++)
             {
-                double domainlengt = (m_DomainPolygon[IndexWrapper(i, m_Curves.Count)] - m_DomainPolygon[IndexWrapper(i + 1, m_Curves.Count)]).Length;
-                double curveparameter = (m_Curves[i].Domain.Length * si_di[i].Item1) / domainlengt;
+                //double domainlengt = (m_DomainPolygon[IndexWrapper(i, m_Curves.Count)] - m_DomainPolygon[IndexWrapper(i + 1, m_Curves.Count)]).Length;
+                double curveparameter = (m_CurvesSerhat[i].Domain.Length * si_di[i].Item1) / m_CurvesSerhat[i].GetLength();
 
                 //Vector3d crossproduct = Vector3d.CrossProduct(m_Curves[i].TangentAt(curveparameter), m_Curves[i].CurvatureAt(curveparameter));
                 //Point3d r = m_Curves[i].PointAt(curveparameter) + (si_di[i].Item2 * crossproduct);
@@ -1081,12 +1404,19 @@ namespace Grasshopper2
                 //   Point3d r = m_Curves[i].PointAt(s) + (si_di[i].Item2 * m_Curves[i].TangentAt(s));
                 //double blendingfunctionvalue = ComputeSPsideBLFunction(d_i, i);
 
-                s = m_Curves[i].Domain.Min + si_di[i].Item1 * (m_Curves[i].Domain.Max - m_Curves[i].Domain.Min);
-                j = (i + 1) % m_Curves.Count;
+                s = m_CurvesSerhat[i].Domain.Min + si_di[i].Item1 * (m_CurvesSerhat[i].Domain.Max - m_CurvesSerhat[i].Domain.Min);
+                j = (i + 1) % m_CurvesSerhat.Count;
                 //T = m_Ts[i] + si_di[i].Item1 * (m_Ts[j] - m_Ts[i]);
-                T = m_Tss[i][0] + si_di[i].Item1 * (m_Tss[i][1] - m_Tss[i][0]);
+                //if (m_TssSerhat[i].Count > 2)
+                //{
+                //    ;
+                //}
+                //else T = m_TssSerhat[i][0] + si_di[i].Item1 * (m_TssSerhat[i][1] - m_TssSerhat[i][0]);
 
-                Point3d r = m_Curves[i].PointAt(s) + (si_di[i].Item2 * T);
+                T = m_TssSerhat[i][0] + (si_di[i].Item1/ (m_CurvesSerhat[i].Domain.Max - m_CurvesSerhat[i].Domain.Min)) * (m_TssSerhat[i][1] - m_TssSerhat[i][0]);
+
+
+                Point3d r = m_CurvesSerhat[i].PointAt(s) + (si_di[i].Item2 * T);
 
                 r_sum += r * Value[i];
             }
@@ -1583,6 +1913,48 @@ namespace Grasshopper2
         {
             return Rad * 180.0 / Math.PI;
         }
+
+        private void writerfunction(HarmonicMap map)
+        {
+            var filename = "C:\\Users\\SCAD\\Downloads\\file.csv";
+            StreamWriter f = new StreamWriter(filename);
+            for (double u = 0; u < 6.05; u = u + 0.2)
+            {
+                for (double v = 0; v < 6.05; v = v + 0.2)
+                {
+                    Point3d point2 = new Point3d(u, v, 0);
+                    var success = harmonic_eval(map, point2, out double result);
+                    if (success)
+                    {
+                        //f.Write("{0:N6},{0:N6},{0:N6}\n", u, v, result);
+                        f.Write(u.ToString("N6") + "," + v.ToString("N6") + "," + result.ToString("N6") + '\n');
+                        //f.Write(u.ToString() + ',' + v.ToString() + ',' + result.ToString() + '\n');
+                    }
+                }
+            }
+            f.Close();
+        }
+        private string writeroutput(HarmonicMap map)
+        {
+            //var filename = "C:\\Users\\SCAD\\Downloads\\file.csv";
+            string f = "";
+            for (double u = 0; u < 10.1; u = u + 0.5)
+            {
+                for (double v = 0; v < 20.1; v = v + 0.5)
+                {
+                    Point3d point2 = new Point3d(u, v, 0);
+                    var success = harmonic_eval(map, point2, out double result);
+                    if (success)
+                    {
+                        //f.Write("{0:N6},{0:N6},{0:N6}\n", u, v, result);
+                        f += (u.ToString("N6") + "," + v.ToString("N6") + "," + result.ToString("N6") + '\n');
+                        //f.Write(u.ToString() + ',' + v.ToString() + ',' + result.ToString() + '\n');
+                    }
+                }
+            }
+            return f;
+        }
+
         public override void AddRuntimeMessage(GH_RuntimeMessageLevel level, string text)
         {
             base.AddRuntimeMessage(level, text);
